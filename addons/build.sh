@@ -2,15 +2,57 @@
 
 set -e
 
+ARG="$1"
+
+ALL_ARCHS=(
+    "linux/amd64" 
+    "linux/arm64" 
+    "linux/riscv64" 
+    "darwin/amd64" 
+    "darwin/arm64" 
+)
+
+cd "$(dirname "$0")/.."
+
+if [[ "$ARG" == "--help" || "$ARG" == "-h" || "$ARG" == "help" ]]; then
+    echo "Usage: ./addons/build.sh [cross|all|help]"
+    echo ""
+    echo "Options:"
+    echo "  (none)      Build for the current architecture only"
+    echo "  cross, all  Cross-compile for all supported architectures"
+    echo "  -h, --help  Show this help message"
+    echo ""
+    echo "Supported cross-compilation architectures:"
+    for arch in "${ALL_ARCHS[@]}"; do
+        echo "  - $arch"
+    done
+    exit 0
+fi
+
 # Cross-compile for different architectures
 
-echo "Building for linux/amd64..."
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o kula ./cmd/kula/
-
-echo "Building for linux/arm64..."
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o kula-arm64 ./cmd/kula/
-
-echo "Building for linux/riscv64..."
-CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o kula-riscv64 ./cmd/kula/
+if [ "$ARG" == "cross" ] || [ "$ARG" == "all" ]; then
+    mkdir -p dist
+    for arch in "${ALL_ARCHS[@]}"; do
+        # split string by / into os and arch
+        os=$(echo "$arch" | cut -d'/' -f1)
+        arch=$(echo "$arch" | cut -d'/' -f2)
+        echo "Building for $os/$arch..."
+        CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build \
+            -trimpath \
+            -ldflags="-s -w" \
+            -buildvcs=false \
+            -o "dist/kula-$os-$arch" \
+            ./cmd/kula/
+    done
+else
+    echo "Building for current architecture..."
+    CGO_ENABLED=0 go build \
+        -trimpath \
+        -ldflags="-s -w" \
+        -buildvcs=false \
+        -o kula \
+        ./cmd/kula/
+fi
 
 echo "Done!"

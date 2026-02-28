@@ -96,7 +96,7 @@ go build -o kula ./cmd/kula/
 ### Cross-Compile
 
 ```bash
-bash addons/build.sh    # builds amd64, arm64, riscv64
+bash addons/build.sh cross    # builds amd64, arm64, riscv64
 ```
 
 ### Debian / Ubuntu (.deb)
