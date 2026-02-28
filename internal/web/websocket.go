@@ -66,17 +66,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}()
 
 		// Write pump
-		for {
-			select {
-			case data, ok := <-client.sendCh:
-				if !ok {
-					return
-				}
-				conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-				if err := websocket.Message.Send(conn, string(data)); err != nil {
-					log.Printf("WebSocket write error: %v", err)
-					return
-				}
+		for data := range client.sendCh {
+			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if err := websocket.Message.Send(conn, string(data)); err != nil {
+				log.Printf("WebSocket write error: %v", err)
+				return
 			}
 		}
 	})
