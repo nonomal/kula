@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders – Kula-Szpiegula</title>
+    <meta name="description"
+        content="Retro Space Invaders arcade game — an easter egg in the Kula-Szpiegula server monitor.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Press+Start+2P&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="game.css">
+</head>
+
+<body>
+    <!-- Scanline CRT overlay -->
+    <div class="scanlines"></div>
+
+    <!-- Back to dashboard -->
+    <a href="/" class="back-link" id="back-link">← Dashboard</a>
+
+    <!-- HUD -->
+    <div class="hud" id="hud">
+        <div class="hud-item">
+            <span class="hud-label">SCORE</span>
+            <span class="hud-value" id="hud-score">0</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">LEVEL</span>
+            <span class="hud-value" id="hud-level">1</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">HIGH</span>
+            <span class="hud-value" id="hud-high">0</span>
+        </div>
+        <div class="hud-item hud-lives">
+            <span class="hud-label">LIVES</span>
+            <span class="hud-value" id="hud-lives">♥♥♥</span>
+        </div>
+    </div>
+
+    <!-- Game canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Start screen overlay -->
+    <div class="overlay" id="start-screen">
+        <div class="overlay-content">
+            <h1 class="game-title">SPACE<br><span class="title-accent">INVADERS</span></h1>
+            <div class="title-subtitle">KULA-SZPIEGULA ARCADE</div>
+            <div class="controls-info">
+                <div class="control-row"><kbd>←</kbd> <kbd>→</kbd> Move</div>
+                <div class="control-row"><kbd>Space</kbd> Shoot</div>
+                <div class="control-row"><kbd>Esc</kbd> Pause</div>
+            </div>
+            <div class="start-prompt blink">PRESS ENTER TO START</div>
+        </div>
+    </div>
+
+    <!-- Pause overlay -->
+    <div class="overlay hidden" id="pause-screen">
+        <div class="overlay-content">
+            <h2 class="pause-title">PAUSED</h2>
+            <div class="start-prompt blink">PRESS ESC TO RESUME</div>
+        </div>
+    </div>
+
+    <!-- Game over overlay -->
+    <div class="overlay hidden" id="gameover-screen">
+        <div class="overlay-content">
+            <h2 class="gameover-title">GAME OVER</h2>
+            <div class="final-score">
+                <span class="final-label">FINAL SCORE</span>
+                <span class="final-value" id="final-score">0</span>
+            </div>
+            <div class="final-score">
+                <span class="final-label">HIGH SCORE</span>
+                <span class="final-value" id="final-high">0</span>
+            </div>
+            <div class="start-prompt blink">PRESS ENTER TO RESTART</div>
+        </div>
+    </div>
+
+    <!-- Level up overlay -->
+    <div class="overlay hidden" id="levelup-screen">
+        <div class="overlay-content">
+            <h2 class="levelup-title">LEVEL <span id="levelup-num">2</span></h2>
+            <div class="levelup-text">GET READY</div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+
+</html>
