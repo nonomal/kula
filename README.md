@@ -1,6 +1,6 @@
 # 🔮 Kula-Szpiegula
 
-**Lightweight, self-contained Linux server monitoring tool.**
+**Lightweight, self-contained Linux® server monitoring tool.**
 
 Zero dependencies. No external databases. Single binary. Just deploy and go.
 
@@ -276,3 +276,5 @@ Binary size: ~11 MB (static, CGO_ENABLED=0)
 ## License
 
 [GNU Affero General Public License v3.0](LICENSE)
+
+The registered trademark Linux® is used pursuant to a sublicense from the Linux Foundation, the exclusive licensee of Linus Torvalds, owner of the mark on a world-wide basis.
