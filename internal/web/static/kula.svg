@@ -1,162 +1,158 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
-    <defs>
-        <!-- Intense glow for the stars and pulse line -->
-        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="6" result="blur1" />
-            <feGaussianBlur stdDeviation="12" result="blur2" />
-            <feMerge>
-                <feMergeNode in="blur2" />
-                <feMergeNode in="blur1" />
-                <feMergeNode in="SourceGraphic" />
-            </feMerge>
-        </filter>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
 
-        <!-- Subtle glow for background stars -->
-        <filter id="subtleGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-            </feMerge>
-        </filter>
+  <radialGradient id="g-base" gradientUnits="userSpaceOnUse"
+      cx="218" cy="200" r="270" fx="208" fy="188">
+    <stop offset="0%"   stop-color="#a040ff"/>
+    <stop offset="26%"  stop-color="#5a12c8"/>
+    <stop offset="60%"  stop-color="#2a0878"/>
+    <stop offset="100%" stop-color="#0d0230"/>
+  </radialGradient>
 
-        <!-- Base 3D space gradient for the planet/sphere -->
-        <radialGradient id="spaceGradient" cx="50%" cy="50%" r="50%" fx="35%" fy="35%">
-            <stop offset="0%" stop-color="#1E293B" />
-            <stop offset="60%" stop-color="#0F172A" />
-            <stop offset="100%" stop-color="#020617" />
-        </radialGradient>
+  <radialGradient id="g-depth" gradientUnits="userSpaceOnUse"
+      cx="312" cy="336" r="240">
+    <stop offset="0%"   stop-color="#000010" stop-opacity="0.72"/>
+    <stop offset="100%" stop-color="#000010" stop-opacity="0"/>
+  </radialGradient>
 
-        <!-- Glowing atmosphere rim around the sphere -->
-        <linearGradient id="atmosphereRim" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.8"/>
-            <stop offset="50%" stop-color="#0EA5E9" stop-opacity="0.1"/>
-            <stop offset="100%" stop-color="#0284C7" stop-opacity="0.6"/>
-        </linearGradient>
+  <radialGradient id="g-spec" gradientUnits="userSpaceOnUse"
+      cx="192" cy="172" r="148">
+    <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.62"/>
+    <stop offset="34%"  stop-color="#d4b8ff" stop-opacity="0.20"/>
+    <stop offset="100%" stop-color="#d4b8ff" stop-opacity="0"/>
+  </radialGradient>
 
-        <!-- Gradient for the life line (Fading from Cosmic Blue to Neon Green back to Cosmic Blue) -->
-        <linearGradient id="pulseGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#0EA5E9" stop-opacity="0.2"/>
-            <stop offset="15%" stop-color="#0EA5E9" stop-opacity="1"/>
-            <stop offset="40%" stop-color="#10B981" stop-opacity="1"/>
-            <stop offset="60%" stop-color="#10B981" stop-opacity="1"/>
-            <stop offset="85%" stop-color="#0EA5E9" stop-opacity="1"/>
-            <stop offset="100%" stop-color="#0EA5E9" stop-opacity="0.2"/>
-        </linearGradient>
+  <radialGradient id="g-rim" gradientUnits="userSpaceOnUse"
+      cx="408" cy="316" r="180">
+    <stop offset="0%"   stop-color="#00f5ff" stop-opacity="0.30"/>
+    <stop offset="100%" stop-color="#00f5ff" stop-opacity="0"/>
+  </radialGradient>
 
-        <!-- Definition for a major 4-point star (sparkle) -->
-        <g id="majorStar">
-            <!-- Glowing rays -->
-            <path d="M 0 -22 C 0 -5 5 0 22 0 C 5 0 0 5 0 22 C 0 5 -5 0 -22 0 C -5 0 0 -5 0 -22 Z" fill="#FFFFFF" filter="url(#glow)" opacity="0.9"/>
-            <!-- Bright core -->
-            <circle cx="0" cy="0" r="3.5" fill="#FFFFFF" />
-        </g>
+  <radialGradient id="g-lf" gradientUnits="userSpaceOnUse"
+      cx="256" cy="256" r="220">
+    <stop offset="56%"  stop-color="#fff"/>
+    <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+  </radialGradient>
 
-        <!-- Definition for a minor background star -->
-        <g id="minorStar">
-            <circle cx="0" cy="0" r="2" fill="#FFFFFF" filter="url(#subtleGlow)" />
-        </g>
+  <linearGradient id="g-wf" gradientUnits="userSpaceOnUse"
+      x1="36" y1="0" x2="476" y2="0">
+    <stop offset="0%"   stop-color="#fff" stop-opacity="0"/>
+    <stop offset="9%"   stop-color="#fff"/>
+    <stop offset="91%"  stop-color="#fff"/>
+    <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
 
-        <!-- Clip path to keep everything perfectly inside the sphere -->
-        <clipPath id="planetClip">
-            <circle cx="256" cy="256" r="256" />
-        </clipPath>
-    </defs>
+  <clipPath id="cp">
+    <circle cx="256" cy="256" r="220"/>
+  </clipPath>
+  <mask id="m-lf">
+    <circle cx="256" cy="256" r="220" fill="url(#g-lf)"/>
+  </mask>
+  <mask id="m-wf">
+    <rect x="0" y="0" width="512" height="512" fill="url(#g-wf)"/>
+  </mask>
 
-    <!-- ========================================== -->
-    <!-- BASE SPHERE (The "Kula" / Planet / Space)  -->
-    <!-- ========================================== -->
-    <!-- The circle has r="256" and is centered at 256, 256, making it touch the exact edges of the 512x512 canvas -->
-    <circle cx="256" cy="256" r="256" fill="url(#spaceGradient)" />
-    
-    <!-- Atmosphere Rim (Inside the bounding box) -->
-    <circle cx="256" cy="256" r="254" fill="none" stroke="url(#atmosphereRim)" stroke-width="4" opacity="0.9"/>
+  <filter id="f-cg" x="-8%" y="-40%" width="116%" height="180%">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
+    <feMerge>
+      <feMergeNode in="b"/>
+      <feMergeNode in="b"/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
 
-    <!-- ========================================== -->
-    <!-- INNER ELEMENTS (Clipped to the sphere)     -->
-    <!-- ========================================== -->
-    <g clip-path="url(#planetClip)">
-        
-        <!-- Subtle 3D Grid (Meridians & Parallels) to keep the Linux/Tech feel -->
-        <g stroke="#38BDF8" stroke-width="1.5" fill="none" opacity="0.15">
-            <ellipse cx="256" cy="256" rx="100" ry="256" />
-            <ellipse cx="256" cy="256" rx="256" ry="100" />
-            <line x1="256" y1="0" x2="256" y2="512" />
-            <line x1="0" y1="256" x2="512" y2="256" />
-        </g>
+</defs>
 
-        <!-- Tiny scattered background stars (Milky way effect) -->
-        <g fill="#FFFFFF" opacity="0.5">
-            <circle cx="90" cy="120" r="1" />
-            <circle cx="150" cy="380" r="1.5" />
-            <circle cx="410" cy="100" r="1" />
-            <circle cx="380" cy="400" r="1.5" />
-            <circle cx="200" cy="80" r="1" />
-            <circle cx="300" cy="460" r="1" />
-            <circle cx="450" cy="280" r="1.2" />
-            <circle cx="60" cy="240" r="1" />
-            <circle cx="250" cy="200" r="0.8" />
-            <circle cx="340" cy="340" r="1" />
-        </g>
+<!-- Hair ring: separates sphere from white backgrounds -->
+<circle cx="256" cy="256" r="221" fill="none" stroke="#000" stroke-width="1.5" opacity="0.07"/>
 
-        <!-- ========================================== -->
-        <!-- CONSTELLATION NETWORK (Faint Branch Lines) -->
-        <!-- ========================================== -->
-        <g stroke="#38BDF8" stroke-width="1.5" stroke-dasharray="4 6" opacity="0.4" stroke-linecap="round">
-            <!-- Connecting main nodes to distant stars -->
-            <line x1="100" y1="270" x2="70" y2="160" />
-            <line x1="140" y1="235" x2="200" y2="150" />
-            <line x1="270" y1="100" x2="360" y2="80" />
-            <line x1="310" y1="410" x2="220" y2="450" />
-            <line x1="380" y1="270" x2="430" y2="370" />
-            <line x1="435" y1="220" x2="480" y2="130" />
-        </g>
+<!-- Sphere base fill -->
+<circle cx="256" cy="256" r="220" fill="url(#g-base)"/>
 
-        <!-- ========================================== -->
-        <!-- THE LIFE LINE (EKG + Constellation Path)   -->
-        <!-- ========================================== -->
-        <g>
-            <!-- Outer Glow for the Life Line -->
-            <path d="M 10 270 L 100 270 L 140 235 L 180 270 L 220 270 L 240 330 L 270 100 L 310 410 L 340 270 L 380 270 L 435 220 L 475 270 L 502 270" 
-                  fill="none" stroke="url(#pulseGradient)" stroke-width="6" stroke-linejoin="round" filter="url(#glow)" opacity="0.6"/>
-            
-            <!-- Crisp Inner Line for the Life Line -->
-            <path d="M 10 270 L 100 270 L 140 235 L 180 270 L 220 270 L 240 330 L 270 100 L 310 410 L 340 270 L 380 270 L 435 220 L 475 270 L 502 270" 
-                  fill="none" stroke="url(#pulseGradient)" stroke-width="2.5" stroke-linejoin="round"/>
-        </g>
+<!-- Globe grid with radial fade -->
+<g clip-path="url(#cp)" mask="url(#m-lf)" opacity="0.20">
+  <ellipse cx="256" cy="256" rx="220" ry="14"  fill="none" stroke="#9058ff" stroke-width="1.2"/>
+  <ellipse cx="256" cy="256" rx="220" ry="74"  fill="none" stroke="#9058ff" stroke-width="1.0"/>
+  <ellipse cx="256" cy="256" rx="220" ry="148" fill="none" stroke="#9058ff" stroke-width="1.0"/>
+  <ellipse cx="256" cy="256" rx="220" ry="200" fill="none" stroke="#9058ff" stroke-width="0.9"/>
+  <ellipse cx="256" cy="256" rx="14"  ry="220" fill="none" stroke="#9058ff" stroke-width="1.2"/>
+  <ellipse cx="256" cy="256" rx="74"  ry="220" fill="none" stroke="#9058ff" stroke-width="1.0"/>
+  <ellipse cx="256" cy="256" rx="148" ry="220" fill="none" stroke="#9058ff" stroke-width="1.0"/>
+  <ellipse cx="256" cy="256" rx="200" ry="220" fill="none" stroke="#9058ff" stroke-width="0.9"/>
+</g>
 
-        <!-- ========================================== -->
-        <!-- STAR NODES (Graph Data Points)             -->
-        <!-- ========================================== -->
-        
-        <!-- 1. Background Constellation Ends (Minor Stars) -->
-        <use href="#minorStar" x="70" y="160" />
-        <use href="#minorStar" x="200" y="150" />
-        <use href="#minorStar" x="220" y="450" />
-        <use href="#minorStar" x="430" y="370" />
-        
-        <!-- 2. Regular Graph Nodes (Medium Stars) -->
-        <circle cx="100" cy="270" r="3" fill="#FFFFFF" filter="url(#subtleGlow)"/>
-        <circle cx="180" cy="270" r="3" fill="#FFFFFF" filter="url(#subtleGlow)"/>
-        <circle cx="220" cy="270" r="3" fill="#FFFFFF" filter="url(#subtleGlow)"/>
-        <circle cx="240" cy="330" r="3.5" fill="#FFFFFF" filter="url(#subtleGlow)"/>
-        <circle cx="340" cy="270" r="3" fill="#FFFFFF" filter="url(#subtleGlow)"/>
-        <circle cx="380" cy="270" r="3" fill="#FFFFFF" filter="url(#subtleGlow)"/>
-        <circle cx="475" cy="270" r="3" fill="#FFFFFF" filter="url(#subtleGlow)"/>
+<circle cx="256" cy="256" r="220" fill="url(#g-depth)" clip-path="url(#cp)"/>
+<circle cx="256" cy="256" r="220" fill="url(#g-rim)"   clip-path="url(#cp)"/>
 
-        <!-- 3. Major Peaks & Highlights (Shining Sparkles) -->
-        <!-- P-Wave Peak -->
-        <use href="#majorStar" x="140" y="235" />
-        <!-- Massive High Spike (R-Wave) -->
-        <use href="#majorStar" x="270" y="100" />
-        <!-- Massive Low Spike (S-Wave) -->
-        <use href="#majorStar" x="310" y="410" />
-        <!-- T-Wave Peak -->
-        <use href="#majorStar" x="435" y="220" />
-        <!-- Huge Background Connected Star -->
-        <use href="#majorStar" x="360" y="80" transform="scale(0.8) translate(90, 20)" opacity="0.8"/>
-        <!-- Distant Major Star -->
-        <use href="#majorStar" x="480" y="130" transform="scale(0.6) translate(320, 86)" opacity="0.6"/>
+<!-- Baseline reference rail -->
+<line x1="55" y1="264" x2="462" y2="264"
+  stroke="#4a1a88" stroke-width="1.8" opacity="0.38"
+  clip-path="url(#cp)" mask="url(#m-wf)"/>
 
-    </g>
+<!-- Secondary data channel (faint, lower) -->
+<path d="M 70,306 L 138,306 C 148,306 152,294 161,294 C 170,294 173,306 183,306
+         L 248,306 C 256,306 260,299 269,299 C 278,299 281,306 291,306 L 445,306"
+  fill="none" stroke="#380875" stroke-width="2.4" opacity="0.26"
+  clip-path="url(#cp)" mask="url(#m-wf)"/>
+
+<!-- Deep shadow ribbon -->
+<path d="M 55,264 L 112,264 C 120,264 123,242 131,242 C 139,242 142,264 150,264
+         L 178,264 L 196,272 L 220,148 L 238,286 L 263,264
+         L 296,264 C 305,264 309,234 320,234 C 331,234 335,264 346,264 L 462,264"
+  fill="none" stroke="#0e0030" stroke-width="10" opacity="0.52"
+  stroke-linejoin="round" stroke-linecap="round"
+  clip-path="url(#cp)" mask="url(#m-wf)" transform="translate(5.5,4.5)"/>
+
+<!-- Mid shadow ribbon -->
+<path d="M 55,264 L 112,264 C 120,264 123,242 131,242 C 139,242 142,264 150,264
+         L 178,264 L 196,272 L 220,148 L 238,286 L 263,264
+         L 296,264 C 305,264 309,234 320,234 C 331,234 335,264 346,264 L 462,264"
+  fill="none" stroke="#3a0898" stroke-width="7" opacity="0.42"
+  stroke-linejoin="round" stroke-linecap="round"
+  clip-path="url(#cp)" mask="url(#m-wf)" transform="translate(2.5,2)"/>
+
+<!-- Main waveform -->
+<path d="M 55,264 L 112,264 C 120,264 123,242 131,242 C 139,242 142,264 150,264
+         L 178,264 L 196,272 L 220,148 L 238,286 L 263,264
+         L 296,264 C 305,264 309,234 320,234 C 331,234 335,264 346,264 L 462,264"
+  fill="none" stroke="#00f5ff" stroke-width="5.2"
+  stroke-linejoin="round" stroke-linecap="round"
+  opacity="0.94" clip-path="url(#cp)" mask="url(#m-wf)" filter="url(#f-cg)"/>
+
+<!-- Upper highlight edge -->
+<path d="M 55,264 L 112,264 C 120,264 123,242 131,242 C 139,242 142,264 150,264
+         L 178,264 L 196,272 L 220,148 L 238,286 L 263,264
+         L 296,264 C 305,264 309,234 320,234 C 331,234 335,264 346,264 L 462,264"
+  fill="none" stroke="#aaffff" stroke-width="1.5"
+  stroke-linejoin="round" stroke-linecap="round"
+  opacity="0.32" clip-path="url(#cp)" mask="url(#m-wf)" transform="translate(-1,-2)"/>
+
+<!-- R-peak crosshair -->
+<g clip-path="url(#cp)" filter="url(#f-cg)" opacity="0.72">
+  <line x1="220" y1="131" x2="220" y2="165" stroke="#00f5ff" stroke-width="2"/>
+  <line x1="203" y1="148" x2="237" y2="148" stroke="#00f5ff" stroke-width="1.5"/>
+</g>
+
+<!-- T-wave crosshair -->
+<g clip-path="url(#cp)" opacity="0.50">
+  <line x1="320" y1="222" x2="320" y2="246" stroke="#00f5ff" stroke-width="1.5"/>
+  <line x1="308" y1="234" x2="332" y2="234" stroke="#00f5ff" stroke-width="1"/>
+</g>
+
+<!-- Peak glow dots -->
+<g clip-path="url(#cp)" filter="url(#f-cg)">
+  <circle cx="220" cy="148" r="18" fill="#00f5ff" opacity="0.10"/>
+  <circle cx="220" cy="148" r="9"  fill="#00f5ff" opacity="0.96"/>
+  <circle cx="320" cy="234" r="12" fill="#00f5ff" opacity="0.09"/>
+  <circle cx="320" cy="234" r="6"  fill="#00f5ff" opacity="0.86"/>
+  <circle cx="131" cy="242" r="5"  fill="#00f5ff" opacity="0.62"/>
+</g>
+
+<!-- Specular highlight -->
+<circle cx="256" cy="256" r="220" fill="url(#g-spec)" clip-path="url(#cp)"/>
+
+<!-- Inner edge rings -->
+<circle cx="256" cy="256" r="219"   fill="none" stroke="#fff"    stroke-width="1.5" opacity="0.14"/>
+<circle cx="256" cy="256" r="217.5" fill="none" stroke="#1c004a" stroke-width="2"   opacity="0.42"/>
+
 </svg>
