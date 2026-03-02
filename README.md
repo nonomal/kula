@@ -12,7 +12,7 @@
 
 Zero dependencies. No external databases. Single binary. Just deploy and go.
 
-<img width="1078" height="770" alt="image" src="https://github.com/user-attachments/assets/749b2bd1-c16f-4616-8a39-e59a5e635d2d" />
+<img width="1037" height="763" alt="image" src="https://github.com/user-attachments/assets/55c4bde2-ad38-4a4a-9819-af8fb8ee46af" />
 
 </div>
 
