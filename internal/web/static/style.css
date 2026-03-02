@@ -162,7 +162,7 @@ body {
     background: var(--bg-card);
     border-bottom: 1px solid var(--border-color);
     backdrop-filter: blur(10px);
-    position: sticky;
+    position: static;
     top: 0;
     z-index: 100;
 }
