@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🔮 Kula
+<img width="128" height="128" alt="image" src="https://github.com/user-attachments/assets/77d5850a-c3a4-47fe-b33e-dcaeeb3c8e4d" />
+
+# K U L A
 
 **Lightweight, self-contained Linux® server monitoring tool.**
 
