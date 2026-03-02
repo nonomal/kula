@@ -32,6 +32,7 @@
         focusMode: false,
         focusSelecting: false,
         focusVisible: JSON.parse(localStorage.getItem('kula_focus_visible') || 'null'),
+        currentResolution: '1s', // resolution of data currently loaded in charts
     };
 
     // ---- Color Palette ----
@@ -514,6 +515,83 @@
             chart.options.scales.x.max = max;
             chart.update('none');
         });
+
+        // If current data is coarser than 1s and the zoomed window fits within
+        // 1-hour of 1s samples, re-fetch at higher resolution for this window.
+        if (min && max && state.currentResolution !== '1s') {
+            const windowSec = (max - min) / 1000;
+            if (windowSec <= 3600) {
+                fetchZoomedHistory(new Date(min), new Date(max));
+            }
+        }
+    }
+
+    // Fetch higher-resolution data for a zoomed window and replace chart data,
+    // then re-apply the zoom so the viewport stays exactly where the user dragged.
+    function fetchZoomedHistory(fromDate, toDate) {
+        if (state.loadingHistory) return;
+        state.loadingHistory = true;
+        document.getElementById('loading-spinner')?.classList.remove('hidden');
+
+        const from = fromDate.toISOString();
+        const to = toDate.toISOString();
+        fetch(`/api/history?from=${from}&to=${to}`)
+            .then(r => r.json())
+            .then(response => {
+                const data = response.samples || response;
+                const isEnvelope = response.samples !== undefined;
+
+                if (isEnvelope) {
+                    updateSamplingInfo(response.tier, response.resolution);
+                }
+
+                clearAllChartData();
+                state.dataBuffer = [];
+
+                if (Array.isArray(data) && data.length > 0) {
+                    const processed = insertGapsInHistory(data, response?.resolution);
+                    processed.forEach(item => {
+                        if (item._gap) {
+                            addGapToCharts(new Date(item.ts));
+                            return;
+                        }
+                        const sample = item.data || item;
+                        const ts = new Date(sample.ts);
+                        state.dataBuffer.push(sample);
+                        addSampleToCharts(sample, ts);
+                    });
+
+                    if (state.dataBuffer.length > state.maxBufferSize) {
+                        state.dataBuffer = state.dataBuffer.slice(-state.maxBufferSize);
+                    }
+
+                    const lastSample = data[data.length - 1];
+                    const s = lastSample.data || lastSample;
+                    state.lastSample = s;
+                    updateGauges(s);
+                    updateHeader(s);
+                    updateSubtitles(s);
+                    evaluateAlerts(s);
+                }
+
+                // Re-apply the zoom viewport so the user stays in the same window
+                const minMs = fromDate.getTime();
+                const maxMs = toDate.getTime();
+                Object.values(state.charts).forEach(chart => {
+                    if (!chart?.options?.scales?.x) return;
+                    chart.options.scales.x.min = minMs;
+                    chart.options.scales.x.max = maxMs;
+                    chart.update('none');
+                });
+
+                state.loadingHistory = false;
+                document.getElementById('loading-spinner')?.classList.add('hidden');
+            })
+            .catch(e => {
+                console.error('Zoomed history fetch error:', e);
+                state.loadingHistory = false;
+                document.getElementById('loading-spinner')?.classList.add('hidden');
+            });
     }
 
     function resetZoomAll() {
@@ -855,6 +933,7 @@
         const tierNames = ['Tier 1 (raw)', 'Tier 2 (1min avg)', 'Tier 3 (5min avg)'];
         const name = tierNames[tier] || `Tier ${tier + 1}`;
         el.textContent = `${resolution} samples · ${name}`;
+        state.currentResolution = resolution || '1s';
     }
 
     function fetchHistory(rangeSeconds) {
