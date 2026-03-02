@@ -12,6 +12,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 ### Fixed
 
 - Fixed 100% CPU exhaustion in browser when switching to 1h time window
+- Fix zoom resolution on coarse-resolution time ranges
 
 ### Security
 
