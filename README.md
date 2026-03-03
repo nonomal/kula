@@ -28,13 +28,13 @@ Kula collects system metrics every second by reading directly from `/proc` and `
 |--------|-----------------|
 | **CPU** | Total usage (user, system, iowait, irq, softirq, steal) + core count |
 | **Load** | 1 / 5 / 15 min averages, running & total tasks |
-| **Memory** | Total, free, available, used, buffers, cached, **shmem** |
+| **Memory** | Total, free, available, used, buffers, cached, shmem |
 | **Swap** | Total, free, used |
-| **Network** | Per-interface throughput (Mbps), packets/s, errors, drops; **TCP errors/s, resets/s**, established connections; socket counts |
-| **Disks** | Per-device I/O (read/write bytes/s, **reads/s, writes/s IOPS**); filesystem usage |
+| **Network** | Per-interface throughput (Mbps), packets/s, errors, drops; TCP errors/s, resets/s, established connections; socket counts |
+| **Disks** | Per-device I/O (read/write bytes/s, reads/s, writes/s IOPS); filesystem usage |
 | **System** | Uptime, entropy, clock sync, hostname, logged-in user count |
 | **Processes** | Running, sleeping, blocked, zombie counts |
-| **Self** | Kula's own CPU%, RSS memory, **open file descriptors** |
+| **Self** | Kula's own CPU%, RSS memory, open file descriptors |
 
 ---
 
