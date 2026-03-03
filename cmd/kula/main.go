@@ -233,7 +233,17 @@ func runInspectTier(cfg *config.Config) {
 
 		fmt.Printf("File: %s\n", path)
 		fmt.Printf("Version: %d\n", info.Version)
-		fmt.Printf("Max Data Size: %d bytes\n", info.MaxData)
+
+		currentData := info.WriteOff
+		if info.Wrapped {
+			currentData = info.MaxData
+		}
+		pct := 0.0
+		if info.MaxData > 0 {
+			pct = float64(currentData) / float64(info.MaxData) * 100
+		}
+		fmt.Printf("Data Size: %d / %d bytes (%.2f%%)\n", currentData, info.MaxData, pct)
+
 		fmt.Printf("Write Offset: %d\n", info.WriteOff)
 		fmt.Printf("Total Records: %d\n", info.Count)
 

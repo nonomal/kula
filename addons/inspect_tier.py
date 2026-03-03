@@ -38,9 +38,18 @@ def inspect_tier(filepath):
                 print(f"Error: Invalid magic: {magic_str}", file=sys.stderr)
                 sys.exit(1)
 
+            wrapped = False
+            if write_off > 0 and count > 0:
+                if file_size >= HEADER_SIZE + max_data:
+                    wrapped = True
+
             print(f"File: {filepath}")
             print(f"Version: {version}")
-            print(f"Max Data Size: {max_data} bytes")
+            
+            current_data = max_data if wrapped else write_off
+            pct = (current_data / max_data * 100) if max_data > 0 else 0.0
+            print(f"Data Size: {current_data} / {max_data} bytes ({pct:.2f}%)")
+            
             print(f"Write Offset: {write_off}")
             print(f"Total Records: {count}")
             
@@ -59,10 +68,6 @@ def inspect_tier(filepath):
             else:
                 print(f"Newest Timestamp: (none)")
                 
-            wrapped = False
-            if write_off > 0 and count > 0:
-                if file_size >= HEADER_SIZE + max_data:
-                    wrapped = True
             print(f"Wrapped: {wrapped}")
             
             if oldest_ts and newest_ts:
