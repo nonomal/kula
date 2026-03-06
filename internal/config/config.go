@@ -87,7 +87,7 @@ func DefaultConfig() *Config {
 		},
 		Web: WebConfig{
 			Enabled: true,
-			Listen:  "0.0.0.0",
+			Listen:  "127.0.0.1",
 			Port:    8080,
 			Auth: AuthConfig{
 				SessionTimeout: 24 * time.Hour,
