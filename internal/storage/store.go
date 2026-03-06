@@ -75,6 +75,10 @@ func NewStore(cfg config.StorageConfig) (*Store, error) {
 	// uses the in-memory pointer set by WriteSample.
 	s.warmLatestCache()
 
+	// Reconstruct any partially-aggregated buffers so we don't drop intervals
+	// after a process restart.
+	s.reconstructAggregationState()
+
 	return s, nil
 }
 
@@ -88,6 +92,63 @@ func (s *Store) warmLatestCache() {
 	samples, err := s.tiers[0].ReadLatest(1)
 	if err == nil && len(samples) > 0 {
 		s.latestCache = samples[0]
+	}
+}
+
+// reconstructAggregationState reads the tails of lower tiers to restore
+// the unaggregated memory buffers (tier1Buf, tier2Buf) and counters on startup.
+func (s *Store) reconstructAggregationState() {
+	if len(s.tiers) <= 1 {
+		return
+	}
+
+	// Configure aggregation ratios based on resolutions
+	ratio1 := 60
+	if len(s.configs) > 1 && s.configs[0].Resolution > 0 {
+		ratio1 = int(s.configs[1].Resolution / s.configs[0].Resolution)
+	}
+	if ratio1 <= 0 {
+		ratio1 = 1
+	}
+
+	ratio2 := 5
+	if len(s.configs) > 2 && s.configs[1].Resolution > 0 {
+		ratio2 = int(s.configs[2].Resolution / s.configs[1].Resolution)
+	}
+	if ratio2 <= 0 {
+		ratio2 = 1
+	}
+
+	// Reconstruct Tier 1 state
+	t1Newest := s.tiers[1].NewestTimestamp()
+	t0Samples, err := s.tiers[0].ReadLatest(ratio1)
+	if err == nil {
+		var pending []*collector.Sample
+		for _, as := range t0Samples {
+			if as.Timestamp.After(t1Newest) {
+				if as.Data != nil {
+					pending = append(pending, as.Data)
+				}
+			}
+		}
+		s.tier1Buf = pending
+		s.tier1Count = len(pending)
+	}
+
+	// Reconstruct Tier 2 state
+	if len(s.tiers) > 2 {
+		t2Newest := s.tiers[2].NewestTimestamp()
+		t1Samples, err := s.tiers[1].ReadLatest(ratio2)
+		if err == nil {
+			var pending []*AggregatedSample
+			for _, as := range t1Samples {
+				if as.Timestamp.After(t2Newest) {
+					pending = append(pending, as)
+				}
+			}
+			s.tier2Buf = pending
+			s.tier2Count = len(pending)
+		}
 	}
 }
 
