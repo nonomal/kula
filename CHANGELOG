@@ -12,6 +12,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 ### Added
 
 - Space Invaders: new high score message and sound effect
+- collector unit tests
 
 ### Fixed
 
