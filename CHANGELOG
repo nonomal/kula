@@ -9,6 +9,10 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+### Added
+
+- Space Invaders: new high score message and sound effect
+
 ### Fixed
 
 - tier aggregation gap bug at startup fix

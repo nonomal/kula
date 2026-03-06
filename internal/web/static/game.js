@@ -81,6 +81,12 @@
         powerup: () => { playTone(523, 0.1, 'sine', 0.07); playTone(659, 0.1, 'sine', 0.07); playTone(784, 0.15, 'sine', 0.09); },
         playerHit: () => { playTone(150, 0.3, 'sawtooth', 0.12); playTone(60, 0.5, 'square', 0.1); },
         levelUp: () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'sine', 0.08), i * 100)); },
+        newHighScore: () => {
+            setTimeout(() => {
+                [440, 554.37, 659.25, 880].forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'square', 0.1), i * 150));
+                setTimeout(() => playTone(880, 0.4, 'square', 0.1), 600);
+            }, 800);
+        },
     };
 
     // -------------------------------------------------------
@@ -99,6 +105,7 @@
     const $finalScore = document.getElementById('final-score');
     const $finalHigh = document.getElementById('final-high');
     const $levelupNum = document.getElementById('levelup-num');
+    const $newHighScoreAlert = document.getElementById('new-highscore-alert');
 
     // -------------------------------------------------------
     // State
@@ -659,12 +666,26 @@
     // -------------------------------------------------------
     function gameOver() {
         state = 'gameover';
-        if (score > highScore) {
+
+        const previousHigh = parseInt(localStorage.getItem('kula_invaders_high') || '0', 10);
+        let isNewHighScore = false;
+
+        if (score > previousHigh && score > 0) {
             highScore = score;
             localStorage.setItem('kula_invaders_high', String(highScore));
+            isNewHighScore = true;
         }
+
         $finalScore.textContent = score;
         $finalHigh.textContent = highScore;
+
+        if (isNewHighScore) {
+            if ($newHighScoreAlert) $newHighScoreAlert.classList.remove('hidden');
+            SFX.newHighScore();
+        } else {
+            if ($newHighScoreAlert) $newHighScoreAlert.classList.add('hidden');
+        }
+
         $gameoverScreen.classList.remove('hidden');
         SFX.explode();
         canvas.style.cursor = 'default';

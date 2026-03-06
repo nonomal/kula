@@ -328,6 +328,14 @@ kbd {
     animation: gameoverShake 0.5s ease;
 }
 
+.highscore-alert {
+    font-family: var(--font-pixel);
+    font-size: 1.2rem;
+    color: var(--accent-yellow);
+    text-shadow: 0 0 15px rgba(245, 158, 11, 0.8), 0 0 30px rgba(245, 158, 11, 0.4);
+    margin-bottom: 1.5rem;
+}
+
 @keyframes gameoverShake {
 
     0%,
