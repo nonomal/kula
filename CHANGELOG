@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
-## [Unreleased]
+## [0.7.2] - 2026-03-07
 
 ### Added
 
@@ -25,6 +25,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 - fixed secure cookie flag trust proxy validation
 - fixed session token generation, improved session security
 - Password hashing: Argon2 parameters and secrets in config
+- go update to 1.26.1 to address GO-2026-4602, GO-2026-4601, GO-2026-4600, GO-2026-4599
 
 ## [0.7.1] - 2026-03-05
 
