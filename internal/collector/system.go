@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"golang.org/x/sys/unix"
 )
 
 func collectSystem() SystemStats {
@@ -43,21 +45,28 @@ func collectSystem() SystemStats {
 }
 
 func checkClockSync() bool {
-	// Try timedatectl equivalent: check /run/systemd/timesync/synchronized
+	// 1. Try kernel adjtimex syscall - most robust, works in containers
+	var tx unix.Timex
+	if status, err := unix.Adjtimex(&tx); err == nil {
+		// TIME_ERROR (5) means clock is not synchronized
+		return status != unix.TIME_ERROR
+	}
+
+	// 2. Fallback: check for systemd-timesyncd state file
 	if _, err := os.Stat(filepath.Join(runPath, "systemd/timesync/synchronized")); err == nil {
 		return true
 	}
-	// As a fallback, check if chrony or ntp socket exists
+
+	// 3. Last resort: check if common NTP daemon PIDs exist
 	for _, path := range []string{
 		filepath.Join(varRunPath, "chrony/chronyd.pid"),
 		filepath.Join(varRunPath, "ntpd.pid"),
 		filepath.Join(runPath, "chrony/chronyd.pid"),
 		filepath.Join(runPath, "ntpd.pid"),
 	} {
-		if _, err := os.Stat(path); err != nil {
-			continue
+		if _, err := os.Stat(path); err == nil {
+			return true
 		}
-		return true
 	}
 	return false
 }
