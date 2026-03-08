@@ -103,7 +103,7 @@ Check [Releases](https://github.com/c0m4r/kula/releases) for **ARM** and **RISC-
 
 ```bash
 wget https://github.com/c0m4r/kula/releases/download/0.7.2/kula-0.7.2-amd64.tar.gz
-echo "dd35eac9681e6fb0f0a70607263347b6b77b1c4d04f36deb5361f7c8e50d01c6 kula-0.7.2-amd64.tar.gz" | sha256sum -c || rm kula-0.7.2-amd64.tar.gz
+echo "8fd7ec391db8245d3988b3f50aa013d02df7b14d3de06d35b175099f7a52e064 kula-0.7.2-amd64.tar.gz" | sha256sum -c || rm kula-0.7.2-amd64.tar.gz
 tar -xvf kula-0.7.2-amd64.tar.gz
 cd kula
 ./kula
