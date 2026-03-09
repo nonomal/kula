@@ -28,6 +28,7 @@
         alertDropdownOpen: false,
         infoDropdownOpen: false,
         timeDropdownOpen: false,
+        aggDropdownOpen: false,
         layoutMode: localStorage.getItem('kula_layout') || 'grid',
         lastSample: null,
         joinMetrics: false, // fetched from server config
@@ -1153,13 +1154,17 @@
 
         const aggList = document.getElementById('agg-presets-list');
         const aggDiv = document.getElementById('agg-divider');
+        const aggBtnMobile = document.getElementById('btn-agg-menu');
+
         if (aggList && aggDiv) {
             if (tier === 0 && resolution === '1s') {
                 aggList.classList.add('hidden');
                 aggDiv.classList.add('hidden');
+                if (aggBtnMobile) aggBtnMobile.classList.add('hidden');
             } else {
                 aggList.classList.remove('hidden');
                 aggDiv.classList.remove('hidden');
+                if (aggBtnMobile) aggBtnMobile.classList.remove('hidden');
             }
         }
     }
@@ -1546,6 +1551,32 @@
                     syncPauseState();
                 }
             });
+
+            // Touch events for mobile
+            card.addEventListener('touchstart', () => {
+                if (!state.pausedHover) {
+                    state.pausedHover = true;
+                    syncPauseState();
+                }
+            }, { passive: true });
+
+            const resumeFromTouch = () => {
+                if (state.pausedHover) {
+                    state.pausedHover = false;
+                    syncPauseState();
+                }
+                const canvas = card.querySelector('canvas');
+                if (canvas) {
+                    const chart = Object.values(state.charts).find(c => c && c.canvas === canvas);
+                    if (chart && chart.tooltip) {
+                        chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+                        chart.update();
+                    }
+                }
+            };
+
+            card.addEventListener('touchend', resumeFromTouch, { passive: true });
+            card.addEventListener('touchcancel', resumeFromTouch, { passive: true });
         });
     }
 
@@ -1797,6 +1828,12 @@
             list.classList.toggle('open');
             state.timeDropdownOpen = list.classList.contains('open');
         });
+        document.getElementById('btn-agg-menu').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const list = document.getElementById('agg-presets-list');
+            list.classList.toggle('open');
+            state.aggDropdownOpen = list.classList.contains('open');
+        });
         document.getElementById('btn-focus').addEventListener('click', toggleFocusMode);
         document.getElementById('login-form').addEventListener('submit', handleLogin);
         document.getElementById('btn-logout')?.addEventListener('click', handleLogout);
@@ -1829,6 +1866,11 @@
                     addSampleToCharts(item, ts);
                 });
                 updateAllCharts();
+
+                if (state.aggDropdownOpen) {
+                    state.aggDropdownOpen = false;
+                    document.getElementById('agg-presets-list').classList.remove('open');
+                }
             });
         });
 
@@ -1862,6 +1904,10 @@
             if (state.timeDropdownOpen && !e.target.closest('.time-presets')) {
                 state.timeDropdownOpen = false;
                 document.getElementById('time-presets-list').classList.remove('open');
+            }
+            if (state.aggDropdownOpen && !e.target.closest('#btn-agg-menu') && !e.target.closest('#agg-presets-list')) {
+                state.aggDropdownOpen = false;
+                document.getElementById('agg-presets-list').classList.remove('open');
             }
         });
 

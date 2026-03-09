@@ -1002,6 +1002,10 @@ body.light-mode .focus-selecting .chart-card::after {
         min-width: 120px;
     }
 
+    #agg-presets-list {
+        left: 2.5rem;
+    }
+
     .time-presets-list.open {
         display: flex;
     }
@@ -1012,6 +1016,10 @@ body.light-mode .focus-selecting .chart-card::after {
     }
 
     .sys-sep.mobile-hidden {
+        display: none;
+    }
+
+    #agg-desktop-divider {
         display: none;
     }
 }
