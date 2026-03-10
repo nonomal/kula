@@ -676,6 +676,8 @@
     }
 
     function updateSelectors(s) {
+        const el = (id) => document.getElementById(id);
+
         if (s.net && s.net.ifaces) {
             const ifaces = s.net.ifaces.map(i => i.name).sort();
             if (ifaces.join(',') !== state.netOptions.join(',')) {
@@ -768,7 +770,16 @@
 
     // Push a single live sample — adds data + updates charts immediately
     function pushLiveSample(sample) {
-        const ts = new Date(sample.ts);
+        const ts = new Date(sample.ts || sample.data?.ts);
+
+        // Prevent duplicate or out-of-order samples
+        if (state.lastSample) {
+            const lastTs = new Date(state.lastSample.ts || state.lastSample.data?.ts);
+            if (ts.getTime() <= lastTs.getTime()) {
+                return;
+            }
+        }
+
         state.dataBuffer.push(sample);
         state.lastSample = sample;
         if (state.dataBuffer.length > state.maxBufferSize) {
