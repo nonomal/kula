@@ -29,7 +29,7 @@ stores them in a built-in tiered ring-buffer storage engine, and serves them thr
 
 | Metric | What's Collected |
 |--------|-----------------|
-| **CPU** | Total usage (user, system, iowait, irq, softirq, steal) + core count, temperature |
+| **CPU** | Total usage (user, system, iowait, irq, softirq, steal) + core count |
 | **Load** | 1 / 5 / 15 min averages, running & total tasks |
 | **Memory** | Total, free, available, used, buffers, cached, shmem |
 | **Swap** | Total, free, used |
@@ -38,6 +38,7 @@ stores them in a built-in tiered ring-buffer storage engine, and serves them thr
 | **System** | Uptime, entropy, clock sync, hostname, logged-in user count |
 | **Processes** | Running, sleeping, blocked, zombie counts |
 | **Self** | Kula's own CPU%, RSS memory, open file descriptors |
+| **Thermal** | CPU and Disk temperatures |
 
 ---
 
@@ -80,8 +81,8 @@ Data is persisted in **pre-allocated ring-buffer files** per tier. Each tier fil
 new data overwrites the oldest entries. This gives predictable, bounded disk usage with no cleanup needed.
 
 - **Tier 1** — Raw 1-second samples (default 250 MB)
-- **Tier 2** — 1-minute aggregates: averaged CPU & network, last-value gauges (default 150 MB)
-- **Tier 3** — 5-minute aggregates, same logic (default 50 MB)
+- **Tier 2** — 1-minute metrics aggregation (Avg/Min/Max) (default 150 MB)
+- **Tier 3** — 5-minute metrics aggregation (Avg/Min/Max) (default 50 MB)
 
 ### HTTP server
 
@@ -95,10 +96,12 @@ The frontend is a single-page application embedded in the binary. Built on Chart
 it connects via WebSocket for live updates and falls back to history API for longer time ranges. Features include:
 
 - Interactive zoom with drag-select (auto-pauses live stream)
-- Focus mode to show only selected graphs
+- Focus mode to display only specific charts of interest
+- Configurable Y-axis bounds (Manual limits or Auto-detect)
+- Per-device selectors for Network, Disk I/O, and Thermal monitoring
 - Grid / stacked list layout toggle
-- Alert system for clock sync, entropy issues, overload
-- Light and dark themes available
+- Alert system for clock sync, low entropy, and system overload
+- Modern aesthetics with light/dark theme support
 ---
 
 ## 💾 Installation
@@ -124,9 +127,9 @@ rm -f ${KULA_INSTALL}
 ### Standalone
 
 ```bash
-wget https://github.com/c0m4r/kula/releases/download/0.7.5/kula-0.7.5-amd64.tar.gz
-echo "d0ed586b243ccd7abd3c4733fe3ad02e55d74139977110227e90ece100d68ec1 kula-0.7.5-amd64.tar.gz" | sha256sum -c || rm -f kula-0.7.5-amd64.tar.gz
-tar -xvf kula-0.7.5-amd64.tar.gz
+wget https://github.com/c0m4r/kula/releases/download/0.8.0/kula-0.8.0-amd64.tar.gz
+echo "ddf43cb85c34e9816eece61fc5c0c5db4b30c517f430ded2cedf5e79be6ab5e6 kula-0.8.0-amd64.tar.gz" | sha256sum -c || rm -f kula-0.8.0-amd64.tar.gz
+tar -xvf kula-0.8.0-amd64.tar.gz
 cd kula
 ./kula
 ```
@@ -145,28 +148,28 @@ docker run --rm -it --name kula --pid host --network host -v /proc:/proc:ro c0m4
 ### Debian / Ubuntu (.deb)
 
 ```bash
-wget https://github.com/c0m4r/kula/releases/download/0.7.5/kula-0.7.5-amd64.deb
-echo "7c6d9acc77e46d2356280d966006f13aed1cfa6b1072daa6a02ed186852356d1 kula-0.7.5-amd64.deb" | sha256sum -c || rm -f kula-0.7.5-amd64.deb
-sudo dpkg -i kula-0.7.5-amd64.deb
+wget https://github.com/c0m4r/kula/releases/download/0.8.0/kula-0.8.0-amd64.deb
+echo "69586f3f88d2dbd1850182d0ea1dd2c0b4ebe391d155f6f0716f2497eb65a435 kula-0.8.0-amd64.deb" | sha256sum -c || rm -f kula-0.8.0-amd64.deb
+sudo dpkg -i kula-0.8.0-amd64.deb
 systemctl status kula
 ```
 
 ### RHEL / Fedora / CentOS / Rocky / Alma (.rpm)
 
 ```bash
-wget https://github.com/c0m4r/kula/releases/download/0.7.5/kula-0.7.5-x86_64.rpm
-echo "116dec0f4d166a7a759fee150a6ce18d4f57b1aa710f5f953bb7dc726363b5ce kula-0.7.5-x86_64.rpm" | sha256sum -c || rm -f kula-0.7.5-x86_64.rpm
-sudo rpm -i kula-0.7.5-x86_64.rpm
+wget https://github.com/c0m4r/kula/releases/download/0.8.0/kula-0.8.0-x86_64.rpm
+echo "be76fcf5bbdf2dde2a7e9e4045a0a480b0c6c2bbe537552b6c923f895816dfc1 kula-0.8.0-x86_64.rpm" | sha256sum -c || rm -f kula-0.8.0-x86_64.rpm
+sudo rpm -i kula-0.8.0-x86_64.rpm
 systemctl status kula
 ```
 
 ### Arch Linux / Manjaro (AUR)
 
 ```bash
-wget https://github.com/c0m4r/kula/releases/download/0.7.5/kula-0.7.5-aur.tar.gz
-echo "7bb49b7ed212ff05749e4fddd8822f05b910842cc29d216aa835d73dbeec3d2b kula-0.7.5-aur.tar.gz" | sha256sum -c || rm -f kula-0.7.5-aur.tar.gz
-tar -xvf kula-0.7.5-aur.tar.gz 
-cd kula-0.7.5-aur
+wget https://github.com/c0m4r/kula/releases/download/0.8.0/kula-0.8.0-aur.tar.gz
+echo "<checksum> kula-0.8.0-aur.tar.gz" | sha256sum -c || rm -f kula-0.8.0-aur.tar.gz
+tar -xvf kula-0.8.0-aur.tar.gz 
+cd kula-0.8.0-aur
 makepkg -si
 ```
 
@@ -194,6 +197,9 @@ cp config.example.yaml config.yaml
 
 # 3. Or use the terminal UI
 ./kula tui
+
+# 4. Inspect storage
+./kula inspect
 ```
 
 ### Authentication (Optional)

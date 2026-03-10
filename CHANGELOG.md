@@ -7,18 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
-## [Unreleased]
+## [0.8.0] - 2026-03-11
 
 ### Added
 
 - Graph Y-axis max bound settings (#2)
 - Configurable default aggregation (avg/min/max) in `config.yaml`
-- initial multi disk and network interfaces support
+- Initial multi disk and network interfaces support (#5)
+- Disk drives temperature monitoring (#2)
+- Dashboard sections: "", "Thermals" (#2)
 
 ### Changed
 
 - Format raw bytes to human readable format inside tooltips
 - Update charmbracelet/colorprofile
+- CPU temperature graph moved to the new "Thermals" section (#2)
+- Multiple minor fixes
 
 ### Fixed
 
