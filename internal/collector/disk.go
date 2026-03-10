@@ -32,12 +32,15 @@ func parseDiskStats() map[string]diskRaw {
 		}
 		name := fields[2]
 
-		// Skip loop devices
-		if strings.HasPrefix(name, "loop") {
+		// Skip virtual, logical, and optical devices to prevent IO double-counting
+		// dm- (device-mapper/LVM/LUKS), md (software RAID), loop, sr (optical), ram, zram
+		if strings.HasPrefix(name, "dm-") || strings.HasPrefix(name, "md") ||
+			strings.HasPrefix(name, "loop") || strings.HasPrefix(name, "sr") ||
+			strings.HasPrefix(name, "ram") || strings.HasPrefix(name, "zram") {
 			continue
 		}
 
-		// Skip partitions — only keep whole devices and device-mapper
+		// Skip partitions — only keep whole physical devices
 		// Heuristic: skip if name ends with a digit and is a partition (sda1, nvme0n1p1)
 		if isPartition(name) {
 			continue

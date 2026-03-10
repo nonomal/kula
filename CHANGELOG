@@ -13,6 +13,14 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 - Graph Y-axis max bound settings
 
+### Changed
+
+- Format raw bytes to human readable format inside tooltips
+
+### Fixed
+
+- Fix double-counting of Disk I/O from logical volumes (LVM, dm-crypt, mdraid)
+
 ## [0.7.5] - 2026-03-10
 
 ### Added
