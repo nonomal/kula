@@ -770,11 +770,8 @@
                         selNet.appendChild(opt);
                     });
                     selNet.value = state.selectedNet;
-                    if (ifaces.length > 1) {
-                        selNet.classList.remove('hidden');
-                    } else {
-                        selNet.classList.add('hidden');
-                    }
+                    selNet.classList.toggle('no-arrow', ifaces.length <= 1);
+                    selNet.classList.remove('hidden');
                     selNet.onchange = (e) => {
                         state.selectedNet = e.target.value;
                         if (selPps) selPps.value = state.selectedNet;
@@ -792,11 +789,8 @@
                         selPps.appendChild(opt);
                     });
                     selPps.value = state.selectedNet;
-                    if (ifaces.length > 1) {
-                        selPps.classList.remove('hidden');
-                    } else {
-                        selPps.classList.add('hidden');
-                    }
+                    selPps.classList.toggle('no-arrow', ifaces.length <= 1);
+                    selPps.classList.remove('hidden');
                     selPps.onchange = (e) => {
                         state.selectedNet = e.target.value;
                         if (selNet) selNet.value = state.selectedNet;
@@ -825,11 +819,8 @@
                         sel.appendChild(opt);
                     });
                     sel.value = state.selectedDiskIo;
-                    if (devs.length > 1) {
-                        sel.classList.remove('hidden');
-                    } else {
-                        sel.classList.add('hidden');
-                    }
+                    sel.classList.toggle('no-arrow', devs.length <= 1);
+                    sel.classList.remove('hidden');
                     sel.onchange = (e) => {
                         state.selectedDiskIo = e.target.value;
                         localStorage.setItem('kula_sel_diskio', state.selectedDiskIo);
@@ -859,11 +850,8 @@
                         sel.appendChild(opt);
                     });
                     sel.value = state.selectedDiskTemp;
-                    if (tempDevs.length > 1) {
-                        sel.classList.remove('hidden');
-                    } else {
-                        sel.classList.add('hidden');
-                    }
+                    sel.classList.toggle('no-arrow', tempDevs.length <= 1);
+                    sel.classList.remove('hidden');
                     sel.onchange = (e) => {
                         state.selectedDiskTemp = e.target.value;
                         localStorage.setItem('kula_sel_disktemp', state.selectedDiskTemp);
@@ -891,11 +879,8 @@
                         sel.appendChild(opt);
                     });
                     sel.value = state.selectedDiskSpace;
-                    if (mounts.length > 1) {
-                        sel.classList.remove('hidden');
-                    } else {
-                        sel.classList.add('hidden');
-                    }
+                    sel.classList.toggle('no-arrow', mounts.length <= 1);
+                    sel.classList.remove('hidden');
                     sel.onchange = (e) => {
                         state.selectedDiskSpace = e.target.value;
                         localStorage.setItem('kula_sel_diskspace', state.selectedDiskSpace);
@@ -2023,12 +2008,22 @@
 
             header.style.position = 'relative';
 
-            const actions = document.createElement('div');
-            actions.className = 'chart-header-actions';
+            // Reuse existing right group (where selectors live) or create a new one
+            let actions = header.querySelector('.chart-header-right');
+            if (!actions) {
+                actions = document.createElement('div');
+                actions.className = 'chart-header-right';
+                header.appendChild(actions);
+            }
+            
+            actions.id = card.id + '-actions';
             actions.style.marginLeft = 'auto';
             actions.style.display = 'flex';
             actions.style.alignItems = 'center';
-            actions.style.gap = '0.25rem';
+            actions.style.gap = '0.35rem';
+
+            // Clean up any old injected buttons or dropdowns
+            header.querySelectorAll('.btn-icon, .alert-dropdown').forEach(el => el.remove());
 
             // Check if this graph needs a settings button
             let graphId = null;
@@ -2178,19 +2173,12 @@
             btn.className = 'btn-icon btn-expand-chart';
             btn.title = 'Expand chart';
             btn.textContent = '🔍';
-            btn.style.marginLeft = '0';
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 toggleExpandChart(card.id);
             });
 
             actions.appendChild(btn);
-
-            // Clean up any old injected buttons
-            const oldMenu = header.querySelector('.btn-expand-chart');
-            if (oldMenu) oldMenu.remove();
-
-            header.appendChild(actions);
         });
     }
 
