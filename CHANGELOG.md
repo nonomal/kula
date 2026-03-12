@@ -16,6 +16,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 ### Fixed
 
 - Prevent fmt.Sprintf with %s from producing invalid JSON
+- Add missing request body size limit on login
 
 ## [0.8.3] - 2026-03-12
 
