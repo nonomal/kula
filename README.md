@@ -247,10 +247,10 @@ All settings live in `config.yaml`. See [`config.example.yaml`](config.example.y
 # Lint + test suite
 bash ./addons/check.sh
 
-# Build dev (Binary size: ~11MB)
+# Build dev (Binary size: ~14MB)
 CGO_ENABLED=0 go build -o kula ./cmd/kula/
 
-# Build prod (Binary size: ~8MB)
+# Build prod (Binary size: ~9MB)
 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -buildvcs=false -o kula ./cmd/kula/
 ```
 
