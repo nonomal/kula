@@ -27,14 +27,14 @@ func TestCollectProcesses(t *testing.T) {
 	procPath = "testdata/proc"
 
 	ps := collectProcesses()
-	if ps.Total != 1 {
-		t.Errorf("expected 1 process, got %d", ps.Total)
+	if ps.Total != 2 {
+		t.Errorf("expected 2 processes, got %d", ps.Total)
 	}
-	if ps.Threads != 1 {
-		t.Errorf("expected 1 thread, got %d", ps.Threads)
+	if ps.Threads != 2 {
+		t.Errorf("expected 2 threads, got %d", ps.Threads)
 	}
-	if ps.Sleeping != 1 {
-		t.Errorf("expected 1 sleeping process, got %d", ps.Sleeping)
+	if ps.Sleeping != 2 {
+		t.Errorf("expected 2 sleeping processes, got %d", ps.Sleeping)
 	}
 }
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
+## [0.8.3] - TBA
+
+### Fixed
+
+- Fix filesystem mount detection in containers by reading both /proc/{1,self}/mounts (#5)
+
 ## [0.8.2] - 2026-03-12
 
 ### Added

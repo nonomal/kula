@@ -2,11 +2,13 @@ package collector
 
 import (
 	"bufio"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
 )
+
 
 type diskRaw struct {
 	reads     uint64
@@ -89,6 +91,14 @@ func (c *Collector) parseDiskStats() map[string]diskRaw {
 		c.debugf(" disk: no devices selected for monitoring")
 	} else {
 		c.debugf(" disk: monitoring %d device(s)", len(result))
+	}
+	// Warn for any explicitly-configured device that was never found in /proc/diskstats
+	if explicitFilter && !c.debugDone {
+		for _, want := range c.collCfg.Devices {
+			if _, found := result[want]; !found {
+				log.Printf("Warning: configured device %q was not found in /proc/diskstats — check name or drive availability", want)
+			}
+		}
 	}
 	return result
 }
@@ -176,19 +186,74 @@ var realFSTypes = map[string]bool{
 }
 
 func (c *Collector) collectFileSystems() []FileSystemInfo {
-	f, err := os.Open(filepath.Join(procPath, "mounts"))
-	if err != nil {
-		return nil
-	}
-	defer func() { _ = f.Close() }()
+	// Merge two mount sources to cover both host and container-internal mounts:
+	//
+	//  /proc/1/mounts  — PID 1's (host systemd's) mount namespace.
+	//                    When /proc is bind-mounted from the host, this exposes
+	//                    all host mounts (/mnt/*, /media/*, etc.) that are
+	//                    invisible inside the container's own namespace.
+	//                    On bare metal this is identical to self/mounts.
+	//
+	//  /proc/self/mounts — the current process's mount namespace.
+	//                      Adds container-specific mounts not present on the
+	//                      host (Docker volumes, overlayfs, bind-mounted config
+	//                      files, etc.).
+	//
+	// If PID 1 and self share the same mount namespace (bare metal), only
+	// /proc/1/mounts is scanned to avoid duplicate debug log noise.
+	// If they differ (container), both are scanned and merged.
 
 	explicitFilter := len(c.collCfg.MountPoints) > 0
 	var result []FileSystemInfo
-	// Deduplicate by mount point — the same mount point can appear multiple times
-	// in /proc/mounts due to bind mounts re-exporting the same location.
 	seen := make(map[string]bool)
-	scanner := bufio.NewScanner(f)
 
+	sources := []string{filepath.Join(procPath, "1", "mounts")}
+	if !sameMountNamespace() {
+		sources = append(sources, filepath.Join(procPath, "mounts"))
+	}
+	for _, src := range sources {
+		f, err := os.Open(src)
+		if err != nil {
+			// If /proc/1/mounts is not accessible, fall back to self/mounts
+			if src == filepath.Join(procPath, "1", "mounts") {
+				if f2, err2 := os.Open(filepath.Join(procPath, "mounts")); err2 == nil {
+					c.scanMounts(f2, &result, seen, explicitFilter)
+					_ = f2.Close()
+				}
+			}
+			continue
+		}
+		c.scanMounts(f, &result, seen, explicitFilter)
+		_ = f.Close()
+	}
+
+	if len(result) == 0 {
+		c.debugf(" fs: no filesystems selected for monitoring")
+	} else {
+		c.debugf(" fs: monitoring %d filesystem(s)", len(result))
+	}
+	return result
+}
+
+// sameMountNamespace reports whether PID 1 and the current process share the
+// same Linux mount namespace by comparing their ns/mnt symlink targets.
+// Returns true (same namespace) when either symlink is unreadable — this
+// conservatively avoids duplicate scanning on systems where /proc/1/ns is
+// inaccessible.
+func sameMountNamespace() bool {
+	ns1, err1 := os.Readlink(filepath.Join(procPath, "1", "ns", "mnt"))
+	nsSelf, err2 := os.Readlink(filepath.Join(procPath, "self", "ns", "mnt"))
+	if err1 != nil || err2 != nil {
+		return true // assume same namespace; avoids double-scan noise
+	}
+	return ns1 == nsSelf
+}
+
+
+// scanMounts reads one mounts-format file and appends matching filesystems to
+// result, using seen to deduplicate by mount point across multiple sources.
+func (c *Collector) scanMounts(f *os.File, result *[]FileSystemInfo, seen map[string]bool, explicitFilter bool) {
+	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		fields := strings.Fields(scanner.Text())
 		if len(fields) < 3 {
@@ -216,8 +281,8 @@ func (c *Collector) collectFileSystems() []FileSystemInfo {
 			continue
 		}
 
-		// Deduplicate: same mount point appearing twice is always a no-op.
-		// Different mount points on the same device (e.g. bind mounts) are allowed.
+		// Deduplicate: same mount point appearing twice (across sources or within)
+		// is always a no-op. Different mount points on the same device are allowed.
 		if seen[mount] {
 			c.debugf(" fs: skipping %q at %q — duplicate mount point", device, mount)
 			continue
@@ -256,7 +321,7 @@ func (c *Collector) collectFileSystems() []FileSystemInfo {
 		}
 
 		c.debugf(" fs: monitoring %q at %q (type=%s)", device, mount, fstype)
-		result = append(result, FileSystemInfo{
+		*result = append(*result, FileSystemInfo{
 			Device:     device,
 			MountPoint: mount,
 			FSType:     fstype,
@@ -266,13 +331,8 @@ func (c *Collector) collectFileSystems() []FileSystemInfo {
 			UsedPct:    usedPct,
 		})
 	}
-	if len(result) == 0 {
-		c.debugf(" fs: no filesystems selected for monitoring")
-	} else {
-		c.debugf(" fs: monitoring %d filesystem(s)", len(result))
-	}
-	return result
 }
+
 
 // getDiskTemperature attempts to read temperature for a disk device.
 func getDiskTemperature(devName string) (float64, []DiskTempSensor) {
