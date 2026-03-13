@@ -4,7 +4,7 @@ import "github.com/charmbracelet/lipgloss"
 
 // Palette — dark purple/slate theme inspired by Charmbracelet's aesthetic.
 var (
-	clrPrimary  = lipgloss.Color("#C084FC") // violet-400
+	clrPrimary  = lipgloss.Color("#5B80B5")
 	clrSky      = lipgloss.Color("#38BDF8") // sky-400
 	clrGreen    = lipgloss.Color("#4ADE80") // green-400
 	clrYellow   = lipgloss.Color("#FBBF24") // amber-400
