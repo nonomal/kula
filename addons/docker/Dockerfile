@@ -30,7 +30,8 @@ COPY --from=builder /app/kula /app/kula
 # Copy example config and adjust it for Docker (/app/data and listen on 0.0.0.0)
 COPY config.example.yaml /app/config.yaml
 RUN sed -i 's|directory: /var/lib/kula|directory: /app/data|' /app/config.yaml && \
-    sed -i 's|listen: "127.0.0.1"|listen: "0.0.0.0"|' /app/config.yaml
+    sed -i 's|listen: "127.0.0.1"|listen: "0.0.0.0"|' /app/config.yaml && \
+    sed -i 's|listen: ""|listen: "0.0.0.0"|' /app/config.yaml
 
 # Create data directory and set permissions
 RUN mkdir -p /app/data && chown -R kula:kula /app
@@ -39,7 +40,7 @@ RUN mkdir -p /app/data && chown -R kula:kula /app
 USER kula
 
 # Expose the default port
-EXPOSE 8080
+EXPOSE 27960
 
 # Set entrypoint
 ENTRYPOINT ["/app/kula"]

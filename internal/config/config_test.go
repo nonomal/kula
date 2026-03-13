@@ -51,8 +51,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Collection.Interval != time.Second {
 		t.Errorf("Collection.Interval = %v, want 1s", cfg.Collection.Interval)
 	}
-	if cfg.Web.Port != 8080 {
-		t.Errorf("Web.Port = %d, want 8080", cfg.Web.Port)
+	if cfg.Web.Port != 27960 {
+		t.Errorf("Web.Port = %d, want 27960", cfg.Web.Port)
 	}
 	if !cfg.Web.Enabled {
 		t.Error("Web.Enabled should be true by default")
@@ -76,8 +76,8 @@ func TestLoadMissingFile(t *testing.T) {
 	if cfg == nil {
 		t.Fatal("Load() returned nil config")
 	}
-	if cfg.Web.Port != 8080 {
-		t.Errorf("Web.Port = %d, want 8080 (default)", cfg.Web.Port)
+	if cfg.Web.Port != 27960 {
+		t.Errorf("Web.Port = %d, want 27960 (default)", cfg.Web.Port)
 	}
 }
 

@@ -155,7 +155,7 @@ docker logs -f kula
 wget https://github.com/c0m4r/kula/releases/download/0.8.3/kula-0.8.3-amd64.deb
 echo "53ea1623dc85a57919baf1ade5fdc512022cd2630149a93a827616a02437ed60 kula-0.8.3-amd64.deb" | sha256sum -c || rm -f kula-0.8.3-amd64.deb
 sudo dpkg -i kula-0.8.3-amd64.deb
-systemctl status kula
+journalctl -f -t kula
 ```
 
 ### RHEL / Fedora / CentOS / Rocky / Alma (.rpm)
@@ -164,7 +164,7 @@ systemctl status kula
 wget https://github.com/c0m4r/kula/releases/download/0.8.3/kula-0.8.3-x86_64.rpm
 echo "9c3a4d3c53e11544a51b7161e9887b15fff7dcd334c6bb648e98f7ab8db80109 kula-0.8.3-x86_64.rpm" | sha256sum -c || rm -f kula-0.8.3-x86_64.rpm
 sudo rpm -i kula-0.8.3-x86_64.rpm
-systemctl status kula
+journalctl -f -t kula
 ```
 
 ### Arch Linux / Manjaro (AUR)
@@ -191,18 +191,23 @@ bash addons/build.sh
 
 ### Quick Start
 
+Starting Kula is as simple as running:
+
 ```bash
-# 1. Copy and edit config (optional)
-cp config.example.yaml config.yaml
+./kula
+```
 
-# 2. Start the server
-./kula serve
-# Dashboard at http://127.0.0.1:8080
+Dashbord will be available at: http://localhost:27960 (or :8080 if you're using earlier versions)
 
-# 3. Or use the terminal UI
+### TUI
+
+```bash
 ./kula tui
+```
 
-# 4. Inspect storage
+### Inspect storage
+
+```bash
 ./kula inspect
 ```
 

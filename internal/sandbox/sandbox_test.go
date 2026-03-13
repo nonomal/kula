@@ -7,7 +7,7 @@ import (
 )
 
 func TestBuildRuleSummary(t *testing.T) {
-	summary := BuildRuleSummary("/etc/kula/config.yaml", "/var/lib/kula", 8080)
+	summary := BuildRuleSummary("/etc/kula/config.yaml", "/var/lib/kula", 27960)
 
 	// Should contain all expected components
 	expected := []string{
@@ -15,7 +15,7 @@ func TestBuildRuleSummary(t *testing.T) {
 		"/sys[ro]",
 		"/etc/kula/config.yaml[ro]",
 		"/var/lib/kula[rw]",
-		"bind TCP/8080",
+		"bind TCP/27960",
 	}
 	for _, want := range expected {
 		if !containsSubstring(summary, want) {
@@ -51,8 +51,8 @@ func TestBuildRuleSummaryDifferentPorts(t *testing.T) {
 	}{
 		{80, "bind TCP/80"},
 		{443, "bind TCP/443"},
-		{8080, "bind TCP/8080"},
-		{9090, "bind TCP/9090"},
+                {9090, "bind TCP/9090"},
+		{27960, "bind TCP/27960"},
 	}
 
 	for _, tt := range tests {

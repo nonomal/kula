@@ -13,6 +13,16 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 - Add missing HTTP Server Timeouts
 
+### Changed
+
+- New default port: 27960
+- New default listen value: "" - listen on all v4/v6 addresses
+- Make the program naming consistent
+
+### Deprecated
+
+- No longer listening on port 8080
+
 ### Fixed
 
 - Prevent fmt.Sprintf with %s from producing invalid JSON

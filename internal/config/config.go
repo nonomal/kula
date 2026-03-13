@@ -126,8 +126,8 @@ func DefaultConfig() *Config {
 		},
 		Web: WebConfig{
 			Enabled:            true,
-			Listen:             "127.0.0.1",
-			Port:               8080,
+			Listen:             "",
+			Port:               27960,
 			JoinMetrics:        false,
 			DefaultAggregation: "avg",
 			Auth: AuthConfig{
