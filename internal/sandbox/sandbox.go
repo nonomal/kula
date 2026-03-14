@@ -64,6 +64,9 @@ func Enforce(configPath string, storageDir string, webPort int) error {
 	}
 
 	// Build network rules: only allow binding to the web port
+	if webPort < 1 || webPort > 65535 {
+		return fmt.Errorf("sandbox: invalid web port %d", webPort)
+	}
 	netRules := []landlock.Rule{
 		landlock.BindTCP(uint16(webPort)),
 	}

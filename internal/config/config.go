@@ -173,7 +173,11 @@ func Load(path string) (*Config, error) {
 	}
 	if portStr := os.Getenv("KULA_PORT"); portStr != "" {
 		if port, err := strconv.Atoi(portStr); err == nil {
-			cfg.Web.Port = port
+			if port > 0 && port <= 65535 {
+				cfg.Web.Port = port
+			} else {
+				log.Printf("Warning: KULA_PORT %d out of range (1-65535), ignoring", port)
+			}
 		} else {
 			log.Printf("Warning: invalid KULA_PORT %q: %v", portStr, err)
 		}

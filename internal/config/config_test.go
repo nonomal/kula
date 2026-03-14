@@ -140,12 +140,8 @@ func TestLoadInvalidYAML(t *testing.T) {
 }
 
 func TestLoadEnvOverrides(t *testing.T) {
-	os.Setenv("KULA_LISTEN", "10.0.0.1")
-	os.Setenv("KULA_PORT", "1234")
-	defer func() {
-		os.Unsetenv("KULA_LISTEN")
-		os.Unsetenv("KULA_PORT")
-	}()
+	t.Setenv("KULA_LISTEN", "10.0.0.1")
+	t.Setenv("KULA_PORT", "1234")
 
 	cfg, err := Load("/nonexistent/path/config.yaml")
 	if err != nil {
