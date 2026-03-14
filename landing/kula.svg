@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+
+  <radialGradient id="g-base" gradientUnits="userSpaceOnUse"
+      cx="218" cy="200" r="270" fx="208" fy="188">
+    <stop offset="0%"   stop-color="#a040ff"/>
+    <stop offset="26%"  stop-color="#5a12c8"/>
+    <stop offset="60%"  stop-color="#2a0878"/>
+    <stop offset="100%" stop-color="#0d0230"/>
+  </radialGradient>
+
+  <radialGradient id="g-depth" gradientUnits="userSpaceOnUse"
+      cx="312" cy="336" r="240">
+    <stop offset="0%"   stop-color="#000010" stop-opacity="0.72"/>
+    <stop offset="100%" stop-color="#000010" stop-opacity="0"/>
+  </radialGradient>
+
+  <radialGradient id="g-spec" gradientUnits="userSpaceOnUse"
+      cx="192" cy="172" r="148">
+    <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.62"/>
+    <stop offset="34%"  stop-color="#d4b8ff" stop-opacity="0.20"/>
+    <stop offset="100%" stop-color="#d4b8ff" stop-opacity="0"/>
+  </radialGradient>
+
+  <radialGradient id="g-rim" gradientUnits="userSpaceOnUse"
+      cx="408" cy="316" r="180">
+    <stop offset="0%"   stop-color="#00f5ff" stop-opacity="0.30"/>
+    <stop offset="100%" stop-color="#00f5ff" stop-opacity="0"/>
+  </radialGradient>
+
+  <radialGradient id="g-lf" gradientUnits="userSpaceOnUse"
+      cx="256" cy="256" r="220">
+    <stop offset="56%"  stop-color="#fff"/>
+    <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+  </radialGradient>
+
+  <linearGradient id="g-wf" gradientUnits="userSpaceOnUse"
+      x1="36" y1="0" x2="476" y2="0">
+    <stop offset="0%"   stop-color="#fff" stop-opacity="0"/>
+    <stop offset="9%"   stop-color="#fff"/>
+    <stop offset="91%"  stop-color="#fff"/>
+    <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+
+  <clipPath id="cp">
+    <circle cx="256" cy="256" r="220"/>
+  </clipPath>
+  <mask id="m-lf">
+    <circle cx="256" cy="256" r="220" fill="url(#g-lf)"/>
+  </mask>
+  <mask id="m-wf">
+    <rect x="0" y="0" width="512" height="512" fill="url(#g-wf)"/>
+  </mask>
+
+  <filter id="f-cg" x="-8%" y="-40%" width="116%" height="180%">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
+    <feMerge>
+      <feMergeNode in="b"/>
+      <feMergeNode in="b"/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
+
+</defs>
+
+<!-- Hair ring: separates sphere from white backgrounds -->
+<circle cx="256" cy="256" r="221" fill="none" stroke="#000" stroke-width="1.5" opacity="0.07"/>
+
+<!-- Sphere base fill -->
+<circle cx="256" cy="256" r="220" fill="url(#g-base)"/>
+
+<!-- Globe grid with radial fade -->
+<g clip-path="url(#cp)" mask="url(#m-lf)" opacity="0.20">
+  <ellipse cx="256" cy="256" rx="220" ry="14"  fill="none" stroke="#9058ff" stroke-width="1.2"/>
+  <ellipse cx="256" cy="256" rx="220" ry="74"  fill="none" stroke="#9058ff" stroke-width="1.0"/>
+  <ellipse cx="256" cy="256" rx="220" ry="148" fill="none" stroke="#9058ff" stroke-width="1.0"/>
+  <ellipse cx="256" cy="256" rx="220" ry="200" fill="none" stroke="#9058ff" stroke-width="0.9"/>
+  <ellipse cx="256" cy="256" rx="14"  ry="220" fill="none" stroke="#9058ff" stroke-width="1.2"/>
+  <ellipse cx="256" cy="256" rx="74"  ry="220" fill="none" stroke="#9058ff" stroke-width="1.0"/>
+  <ellipse cx="256" cy="256" rx="148" ry="220" fill="none" stroke="#9058ff" stroke-width="1.0"/>
+  <ellipse cx="256" cy="256" rx="200" ry="220" fill="none" stroke="#9058ff" stroke-width="0.9"/>
+</g>
+
+<circle cx="256" cy="256" r="220" fill="url(#g-depth)" clip-path="url(#cp)"/>
+<circle cx="256" cy="256" r="220" fill="url(#g-rim)"   clip-path="url(#cp)"/>
+
+<!-- Baseline reference rail -->
+<line x1="55" y1="264" x2="462" y2="264"
+  stroke="#4a1a88" stroke-width="1.8" opacity="0.38"
+  clip-path="url(#cp)" mask="url(#m-wf)"/>
+
+<!-- Secondary data channel (faint, lower) -->
+<path d="M 70,306 L 138,306 C 148,306 152,294 161,294 C 170,294 173,306 183,306
+         L 248,306 C 256,306 260,299 269,299 C 278,299 281,306 291,306 L 445,306"
+  fill="none" stroke="#380875" stroke-width="2.4" opacity="0.26"
+  clip-path="url(#cp)" mask="url(#m-wf)"/>
+
+<!-- Deep shadow ribbon -->
+<path d="M 55,264 L 112,264 C 120,264 123,242 131,242 C 139,242 142,264 150,264
+         L 178,264 L 196,272 L 220,148 L 238,286 L 263,264
+         L 296,264 C 305,264 309,234 320,234 C 331,234 335,264 346,264 L 462,264"
+  fill="none" stroke="#0e0030" stroke-width="10" opacity="0.52"
+  stroke-linejoin="round" stroke-linecap="round"
+  clip-path="url(#cp)" mask="url(#m-wf)" transform="translate(5.5,4.5)"/>
+
+<!-- Mid shadow ribbon -->
+<path d="M 55,264 L 112,264 C 120,264 123,242 131,242 C 139,242 142,264 150,264
+         L 178,264 L 196,272 L 220,148 L 238,286 L 263,264
+         L 296,264 C 305,264 309,234 320,234 C 331,234 335,264 346,264 L 462,264"
+  fill="none" stroke="#3a0898" stroke-width="7" opacity="0.42"
+  stroke-linejoin="round" stroke-linecap="round"
+  clip-path="url(#cp)" mask="url(#m-wf)" transform="translate(2.5,2)"/>
+
+<!-- Main waveform -->
+<path d="M 55,264 L 112,264 C 120,264 123,242 131,242 C 139,242 142,264 150,264
+         L 178,264 L 196,272 L 220,148 L 238,286 L 263,264
+         L 296,264 C 305,264 309,234 320,234 C 331,234 335,264 346,264 L 462,264"
+  fill="none" stroke="#00f5ff" stroke-width="5.2"
+  stroke-linejoin="round" stroke-linecap="round"
+  opacity="0.94" clip-path="url(#cp)" mask="url(#m-wf)" filter="url(#f-cg)"/>
+
+<!-- Upper highlight edge -->
+<path d="M 55,264 L 112,264 C 120,264 123,242 131,242 C 139,242 142,264 150,264
+         L 178,264 L 196,272 L 220,148 L 238,286 L 263,264
+         L 296,264 C 305,264 309,234 320,234 C 331,234 335,264 346,264 L 462,264"
+  fill="none" stroke="#aaffff" stroke-width="1.5"
+  stroke-linejoin="round" stroke-linecap="round"
+  opacity="0.32" clip-path="url(#cp)" mask="url(#m-wf)" transform="translate(-1,-2)"/>
+
+<!-- R-peak crosshair -->
+<g clip-path="url(#cp)" filter="url(#f-cg)" opacity="0.72">
+  <line x1="220" y1="131" x2="220" y2="165" stroke="#00f5ff" stroke-width="2"/>
+  <line x1="203" y1="148" x2="237" y2="148" stroke="#00f5ff" stroke-width="1.5"/>
+</g>
+
+<!-- T-wave crosshair -->
+<g clip-path="url(#cp)" opacity="0.50">
+  <line x1="320" y1="222" x2="320" y2="246" stroke="#00f5ff" stroke-width="1.5"/>
+  <line x1="308" y1="234" x2="332" y2="234" stroke="#00f5ff" stroke-width="1"/>
+</g>
+
+<!-- Peak glow dots -->
+<g clip-path="url(#cp)" filter="url(#f-cg)">
+  <circle cx="220" cy="148" r="18" fill="#00f5ff" opacity="0.10"/>
+  <circle cx="220" cy="148" r="9"  fill="#00f5ff" opacity="0.96"/>
+  <circle cx="320" cy="234" r="12" fill="#00f5ff" opacity="0.09"/>
+  <circle cx="320" cy="234" r="6"  fill="#00f5ff" opacity="0.86"/>
+  <circle cx="131" cy="242" r="5"  fill="#00f5ff" opacity="0.62"/>
+</g>
+
+<!-- Specular highlight -->
+<circle cx="256" cy="256" r="220" fill="url(#g-spec)" clip-path="url(#cp)"/>
+
+<!-- Inner edge rings -->
+<circle cx="256" cy="256" r="219"   fill="none" stroke="#fff"    stroke-width="1.5" opacity="0.14"/>
+<circle cx="256" cy="256" r="217.5" fill="none" stroke="#1c004a" stroke-width="2"   opacity="0.42"/>
+
+</svg>
