@@ -107,7 +107,6 @@
     Chart.registry.plugins.get('tooltip'); // ensure plugin is ready
     Chart.Tooltip.positioners.awayFromCursor = function (elements, eventPosition) {
         const chart = this.chart;
-        const canvasRect = chart.canvas.getBoundingClientRect();
         const tooltipWidth = this.width || 180;
         const tooltipHeight = this.height || 80;
         const offset = 18; // gap between tooltip and cursor
