@@ -1,6 +1,11 @@
 # Kula Configuration
 # https://github.com/c0m4r/kula
 
+# Note: some settings can be overridden by environment variables
+# - KULA_LOGLEVEL overrides logging.level
+# - KULA_LISTEN overrides web.listen
+# - KULA_PORT overrides web.port
+
 # Global settings
 global:
   # Overwrite reports hostname (default: system hostname)
