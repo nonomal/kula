@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
+## [0.9.2] - 2026-03-15
+
+### Fixed
+
+- Handle virtual/unavailable disk temperature sensors reporting absolute zero (#9)
+- Fix debug parse error messages being logged unconditionally regardless of log level (#9)
+
 ## [0.9.1] - 2026-03-15
 
 ### Security
