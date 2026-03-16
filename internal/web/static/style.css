@@ -839,7 +839,7 @@ body.light-mode .time-input {
     display: none;
 }
 
-.focus-active .chart-card.focus-visible {
+.focus-active .chart-card.focus-visible:not(.hidden) {
     display: block !important;
 }
 

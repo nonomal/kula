@@ -724,6 +724,11 @@ function updateSelectors(s) {
                 }
             });
         }
+    } else {
+        const el = (id) => document.getElementById(id);
+        ['gpuload-selector', 'vram-selector', 'gputemp-selector'].forEach(id => {
+            el(id)?.classList.add('hidden');
+        });
     }
 }
 

@@ -123,5 +123,9 @@ function updateSubtitles(s) {
                 el('gputemp-subtitle', `${(g.temp || 0).toFixed(1)}°C`);
             }
         }
+    } else {
+        el('gpuload-subtitle', '');
+        el('vram-subtitle', '');
+        el('gputemp-subtitle', '');
     }
 }
