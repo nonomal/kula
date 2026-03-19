@@ -52,6 +52,7 @@ type WebConfig struct {
 	Listen             string      `yaml:"listen"`
 	Port               int         `yaml:"port"`
 	Auth               AuthConfig  `yaml:"auth"`
+	Metrics            MetricsConfig `yaml:"metrics"`
 	JoinMetrics        bool        `yaml:"join_metrics"`
 	DefaultAggregation string      `yaml:"default_aggregation"`
 	Logging            LogConfig   `yaml:"logging"`
@@ -61,9 +62,14 @@ type WebConfig struct {
 	Version            string      `yaml:"-"` // injected at runtime, not from config file
 	OS                 string      `yaml:"-"`
 	Kernel             string      `yaml:"-"`
-	Arch                  string      `yaml:"-"`
-	MaxWebsocketConns     int         `yaml:"max_websocket_conns"`
+	Arch               string      `yaml:"-"`
+	MaxWebsocketConns  int         `yaml:"max_websocket_conns"`
 	MaxWebsocketConnsPerIP int         `yaml:"max_websocket_conns_per_ip"`
+}
+
+type MetricsConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Token   string `yaml:"token"`
 }
 
 type GraphConfig struct {
@@ -134,6 +140,9 @@ func DefaultConfig() *Config {
 			Enabled:            true,
 			Listen:             "",
 			Port:               27960,
+			Metrics: MetricsConfig{
+				Enabled: false,
+			},
 			JoinMetrics:        false,
 			DefaultAggregation: "avg",
 			Auth: AuthConfig{
@@ -198,6 +207,9 @@ func Load(path string) (*Config, error) {
 		} else {
 			cfg.Web.Logging.Enabled = false
 		}
+	}
+	if token, set := os.LookupEnv("KULA_METRICS_TOKEN"); set {
+		cfg.Web.Metrics.Token = token
 	}
 
 	// Expand ~/ shorthand to the user's home directory

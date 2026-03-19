@@ -161,6 +161,45 @@ func TestHandleMetricsMethodNotAllowed(t *testing.T) {
 	}
 }
 
+func TestHandleMetricsBearerTokenUnauthorized(t *testing.T) {
+	store := newTestStoreWithSample(t)
+	defer func() { _ = store.Close() }()
+
+	srv := newTestServer(t, store)
+	srv.cfg.Metrics.Token = "secret-token"
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	w := httptest.NewRecorder()
+	srv.handleMetrics(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("GET /metrics without token status = %d, want 401", w.Code)
+	}
+	if got := w.Header().Get("WWW-Authenticate"); !strings.Contains(got, "Bearer") {
+		t.Errorf("WWW-Authenticate = %q, want Bearer challenge", got)
+	}
+}
+
+func TestHandleMetricsBearerTokenAuthorized(t *testing.T) {
+	store := newTestStoreWithSample(t)
+	defer func() { _ = store.Close() }()
+
+	srv := newTestServer(t, store)
+	srv.cfg.Metrics.Token = "secret-token"
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req.Header.Set("Authorization", "Bearer secret-token")
+	w := httptest.NewRecorder()
+	srv.handleMetrics(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("GET /metrics with token status = %d, want 200", w.Code)
+	}
+	if body := w.Body.String(); !strings.Contains(body, "kula_cpu_usage_percent") {
+		t.Errorf("authorized /metrics body missing expected metric family")
+	}
+}
+
 // TestHandleMetricsEmptyStore verifies that /metrics returns 200 with an
 // empty body when no sample has been written yet.
 func TestHandleMetricsEmptyStore(t *testing.T) {

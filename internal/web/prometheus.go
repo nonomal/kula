@@ -1,6 +1,7 @@
 package web
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"strings"
@@ -9,13 +10,25 @@ import (
 )
 
 // handleMetrics serves Prometheus-compatible metrics in text exposition format.
-// The endpoint is unauthenticated so Prometheus scrapers work without credentials.
+// The endpoint is disabled unless explicitly registered by configuration.
+// When a bearer token is configured, callers must send
+// Authorization: Bearer <token>.
 // It reflects the latest collected sample; if no sample is available yet it
 // returns an empty 200 response so scrapers don't alarm on startup.
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
+	}
+
+	if token := s.cfg.Metrics.Token; token != "" {
+		authz := r.Header.Get("Authorization")
+		const prefix = "Bearer "
+		if !strings.HasPrefix(authz, prefix) || subtle.ConstantTimeCompare([]byte(strings.TrimSpace(authz[len(prefix):])), []byte(token)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="kula-metrics"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 	}
 
 	sample, err := s.store.QueryLatest()

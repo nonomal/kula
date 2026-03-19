@@ -5,6 +5,7 @@
 # - KULA_LOGLEVEL overrides logging.level
 # - KULA_LISTEN overrides web.listen
 # - KULA_PORT overrides web.port
+# - KULA_METRICS_TOKEN overrides web.metrics.token
 
 # Global settings
 global:
@@ -87,6 +88,14 @@ web:
     # "perf" (adds DB fetch metrics)
     # "debug" (i.e. collector auto-discovery)
     level: "perf"
+
+  # Prometheus metrics endpoint (optional)
+  metrics:
+    enabled: false
+    # The endpoint is unauthorized by default.
+    # You can optionally set a bearer token to secure it.
+    # Scrapers must send: Authorization: Bearer <token>
+    token: ""
 
   # Authentication (optional)
   auth:

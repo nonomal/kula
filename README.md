@@ -232,19 +232,46 @@ export KULA_PORT="27960"
 
 ### Prometheus metrics
 
-Kula exposes all collected metrics in [Prometheus text exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/) at:
+Kula can expose collected metrics in [Prometheus text exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/) at:
 
 ```
 http://localhost:27960/metrics
 ```
 
-The endpoint is **unauthenticated** by design so Prometheus scrapers work without credentials. Add it to your `prometheus.yml`:
+The endpoint is **disabled by default**. Enable it in `config.yaml`:
+
+```yaml
+web:
+  metrics:
+    enabled: true
+    token: ""
+```
+
+If you set `web.metrics.token`, scrapers must send a bearer token:
+
+```http
+Authorization: Bearer <token>
+```
+
+Example `prometheus.yml` without a token:
 
 ```yaml
 scrape_configs:
   - job_name: kula
     static_configs:
       - targets: ["localhost:27960"]
+```
+
+Example `prometheus.yml` with a bearer token:
+
+```yaml
+scrape_configs:
+  - job_name: kula
+    static_configs:
+      - targets: ["localhost:27960"]
+    authorization:
+      type: Bearer
+      credentials: "your-metrics-token"
 ```
 
 Exposed metric families:
