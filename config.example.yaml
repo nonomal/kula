@@ -89,7 +89,7 @@ web:
     level: "perf"
 
   # Prometheus metrics endpoint (optional)
-  metrics:
+  prometheus_metrics:
     enabled: false
     # The endpoint is unauthorized by default.
     # You can optionally set a bearer token to secure it.

@@ -57,8 +57,8 @@ func TestDefaultConfig(t *testing.T) {
 	if !cfg.Web.Enabled {
 		t.Error("Web.Enabled should be true by default")
 	}
-	if cfg.Web.Metrics.Enabled {
-		t.Error("Web.Metrics.Enabled should be false by default")
+	if cfg.Web.PrometheusMetrics.Enabled {
+		t.Error("Web.PrometheusMetrics.Enabled should be false by default")
 	}
 	if cfg.Web.Auth.Enabled {
 		t.Error("Web.Auth.Enabled should be false by default")

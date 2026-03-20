@@ -21,7 +21,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if token := s.cfg.Metrics.Token; token != "" {
+	if token := s.cfg.PrometheusMetrics.Token; token != "" {
 		authz := r.Header.Get("Authorization")
 		const prefix = "Bearer "
 		if !strings.HasPrefix(authz, prefix) || subtle.ConstantTimeCompare([]byte(strings.TrimSpace(authz[len(prefix):])), []byte(token)) != 1 {

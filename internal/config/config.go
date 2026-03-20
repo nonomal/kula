@@ -52,7 +52,7 @@ type WebConfig struct {
 	Listen             string      `yaml:"listen"`
 	Port               int         `yaml:"port"`
 	Auth               AuthConfig  `yaml:"auth"`
-	Metrics            MetricsConfig `yaml:"metrics"`
+	PrometheusMetrics  MetricsConfig `yaml:"prometheus_metrics"`
 	JoinMetrics        bool        `yaml:"join_metrics"`
 	DefaultAggregation string      `yaml:"default_aggregation"`
 	Logging            LogConfig   `yaml:"logging"`
@@ -140,7 +140,7 @@ func DefaultConfig() *Config {
 			Enabled:            true,
 			Listen:             "",
 			Port:               27960,
-			Metrics: MetricsConfig{
+			PrometheusMetrics: MetricsConfig{
 				Enabled: false,
 			},
 			JoinMetrics:        false,

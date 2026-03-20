@@ -166,7 +166,7 @@ func TestHandleMetricsBearerTokenUnauthorized(t *testing.T) {
 	defer func() { _ = store.Close() }()
 
 	srv := newTestServer(t, store)
-	srv.cfg.Metrics.Token = "secret-token"
+	srv.cfg.PrometheusMetrics.Token = "secret-token"
 
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	w := httptest.NewRecorder()
@@ -185,7 +185,7 @@ func TestHandleMetricsBearerTokenAuthorized(t *testing.T) {
 	defer func() { _ = store.Close() }()
 
 	srv := newTestServer(t, store)
-	srv.cfg.Metrics.Token = "secret-token"
+	srv.cfg.PrometheusMetrics.Token = "secret-token"
 
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	req.Header.Set("Authorization", "Bearer secret-token")

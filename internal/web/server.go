@@ -216,9 +216,9 @@ func (s *Server) Start() error {
 	mux.Handle("/api/", s.auth.AuthMiddleware(loggedApiMux))
 	mux.Handle("/ws", wsHandler)
 
-	if s.cfg.Metrics.Enabled {
+	if s.cfg.PrometheusMetrics.Enabled {
 		mux.Handle("/metrics", loggingMiddleware(s.cfg, http.HandlerFunc(s.handleMetrics)))
-		if s.cfg.Metrics.Token != "" {
+		if s.cfg.PrometheusMetrics.Token != "" {
 			log.Printf("Prometheus metrics enabled at /metrics with bearer token authentication")
 		} else {
 			log.Printf("Prometheus metrics enabled at /metrics without authentication")
