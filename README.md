@@ -137,9 +137,9 @@ rm -f ${KULA_INSTALL}
 ### Standalone
 
 ```bash
-wget https://github.com/c0m4r/kula/releases/download/0.11.0/kula-0.11.0-amd64.tar.gz
-echo "049b16022d761f9a67fe5cd0b0aa4e4544589b1fde917999bfdf6f44ce7fff8b kula-0.11.0-amd64.tar.gz" | sha256sum -c || rm -f kula-0.11.0-amd64.tar.gz
-tar -xvf kula-0.11.0-amd64.tar.gz
+wget https://github.com/c0m4r/kula/releases/download/0.12.0/kula-0.12.0-amd64.tar.gz
+echo "707324f7f549491d8f9349ff6883ba5acd8e0cad5277b65e3a6a2ffc0fa188a9 kula-0.12.0-amd64.tar.gz" | sha256sum -c || rm -f kula-0.12.0-amd64.tar.gz
+tar -xvf kula-0.12.0-amd64.tar.gz
 cd kula
 ./kula
 ```
@@ -162,28 +162,26 @@ docker logs -f kula
 ### Debian / Ubuntu (.deb)
 
 ```bash
-wget https://github.com/c0m4r/kula/releases/download/0.11.0/kula-0.11.0-amd64.deb
-echo "3aff5cd19ea2a894eb6ff3bec76aa87c0aef5d6db45757ce465cd97361e5a9cd kula-0.11.0-amd64.deb" | sha256sum -c || rm -f kula-0.11.0-amd64.deb
-sudo dpkg -i kula-0.11.0-amd64.deb
+wget https://github.com/c0m4r/kula/releases/download/0.12.0/kula-0.12.0-amd64.deb
+echo "68915b711f738e8d2ef6979df7c1cdc7de65dcd4e900a35849018b9d8f4b7223 kula-0.12.0-amd64.deb" | sha256sum -c || rm -f kula-0.12.0-amd64.deb
+sudo dpkg -i kula-0.12.0-amd64.deb
 journalctl -f -t kula
 ```
 
 ### RHEL / Fedora / CentOS / Rocky / Alma (.rpm)
 
 ```bash
-wget https://github.com/c0m4r/kula/releases/download/0.11.0/kula-0.11.0-x86_64.rpm
-echo "09cd5d38e0ff3ce72d20b471816f26c5ccdcd6ddd58e0b2e014908bcf4130399 kula-0.11.0-x86_64.rpm" | sha256sum -c || rm -f kula-0.11.0-x86_64.rpm
-sudo rpm -i kula-0.11.0-x86_64.rpm
+wget https://github.com/c0m4r/kula/releases/download/0.12.0/kula-0.12.0-x86_64.rpm
+echo "5278e3d95bcaf5d3473bbae9b281ab9c4e93544d65f3790d5a06899d9825f0b7 kula-0.12.0-x86_64.rpm" | sha256sum -c || rm -f kula-0.12.0-x86_64.rpm
+sudo rpm -i kula-0.12.0-x86_64.rpm
 journalctl -f -t kula
 ```
 
 ### Arch Linux / Manjaro (AUR)
 
 ```bash
-wget https://github.com/c0m4r/kula/releases/download/0.11.0/kula-0.11.0-aur.tar.gz
-echo "3b28dc2f4ef1c11524806e0572fb163c3823b3a91f3ce64859b811c73c7423e1 kula-0.11.0-aur.tar.gz" | sha256sum -c || rm -f kula-0.11.0-aur.tar.gz
-tar -xvf kula-0.11.0-aur.tar.gz
-cd kula-0.11.0-aur
+git clone https://aur.archlinux.org/kula.git
+cd kula
 makepkg -si
 ```
 
@@ -192,7 +190,7 @@ makepkg -si
 ```bash
 git clone https://github.com/c0m4r/kula.git
 cd kula
-bash addons/build.sh
+./addons/build.sh
 ```
 
 ---
@@ -290,7 +288,10 @@ All settings live in `config.yaml`. See [`config.example.yaml`](config.example.y
 
 ```bash
 # Lint + test suite
-bash ./addons/check.sh
+./addons/check.sh
+
+# Build
+./addonsh.build.sh
 
 # Build dev (Binary size: ~17MB)
 CGO_ENABLED=0 go build -o kula ./cmd/kula/
@@ -304,6 +305,7 @@ CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -buildvcs=false -o kula ./cmd/
 To safely update only the Go modules used by Kula to their latest minor/patch versions, and prune any unused dependencies:
 
 ```bash
+./addons/go_modules_updates.py
 go get -u ./...
 go mod tidy
 ```
@@ -315,10 +317,7 @@ go mod tidy
 go test -race ./...
 
 # Run the full storage benchmark suite (default: 3s per bench)
-bash addons/benchmark.sh
-
-# Shorter run for quick iteration
-bash addons/benchmark.sh 500ms
+./addons/benchmark.sh
 
 # Python scripts formatter and linters
 black addons/*.py
@@ -329,34 +328,34 @@ mypy --strict addons/*.py
 ### Cross-Compile
 
 ```bash
-bash addons/build.sh cross    # builds amd64, arm64, riscv64
+./addons/build.sh cross    # builds amd64, arm64, riscv64
 ```
 
 ### Debian / Ubuntu (.deb)
 
 ```bash
-bash addons/build_deb.sh
+./addons/build_deb.sh
 ls -1 dist/kula-*.deb
 ```
 
 ### Arch Linux / Manjaro (AUR)
 
 ```bash
-bash addons/build_aur.sh
+./addons/build_aur.sh
 cd dist/aur && makepkg -si
 ```
 
 ### RHEL / Fedora / CentOS / Rocky / Alma (.rpm)
 
 ```bash
-bash addons/build_rpm.sh
+./addons/build_rpm.sh
 ls -1 dist/kula-*.rpm
 ```
 
 ### Docker
 
 ```bash
-bash addons/docker/build.sh
+./addons/docker/build.sh
 docker compose -f addons/docker/docker-compose.yml up -d
 ```
 
