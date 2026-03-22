@@ -862,7 +862,7 @@ body.light-mode .time-input {
     display: none !important;
 }
 
-.charts-grid.focus-active ~ .section-title.focus-active + .charts-grid.focus-active {
+.charts-grid.focus-active~.section-title.focus-active+.charts-grid.focus-active {
     padding-top: 0 !important;
 }
 
@@ -1039,10 +1039,6 @@ body.light-mode .focus-selecting .chart-card::after {
 }
 
 @media (max-width: 980px) {
-    .gauges-row {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
     .header {
         flex-direction: column;
         gap: 0.5rem;
@@ -1109,6 +1105,10 @@ body.light-mode .focus-selecting .chart-card::after {
 }
 
 @media (max-width: 600px) {
+    .gauges-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
     .sampling-info {
         display: none;
     }
