@@ -1,5 +1,43 @@
 package storage
 
+// ---- Codec backward-compatibility rules ------------------------------------
+//
+// The binary codec must read records written by ALL previous versions of Kula
+// that may still exist in tier files. Violating this silently drops historical
+// data from graphs. Follow these rules when changing the format:
+//
+//  1. NEVER resize an existing block in-place. Old records on disk already
+//     contain the old size and the decoder will read garbage or corrupt the
+//     offset for subsequent sections.
+//
+//  2. To add fields to an application metrics section (nginx, postgres, etc.),
+//     use the presence byte as a VERSION TAG:
+//       - Existing version (e.g. 1) keeps the old block size.
+//       - Bump the presence byte to N+1 and write the new, larger block.
+//       - The decoder must branch: if version==1 → read old layout;
+//         if version>=2 → read new layout. Zero-init fields absent in old.
+//     See the PostgreSQL section for a worked example (v1=56B, v2=104B).
+//
+//  3. To add an entirely new application section, append it AFTER the custom
+//     metrics section and gate it behind a new preamble flag bit
+//     (like flagHasApps gates the whole apps section). Old records without
+//     the flag will not attempt to read the new section.
+//
+//  4. NEVER remove or reorder fields inside an existing version block.
+//     Deprecate by keeping the field, writing zero, and ignoring it on read.
+//
+//  5. After any format change, update ALL of:
+//       - appendVariable()  (encoder)
+//       - decodeVariable()  (decoder, with version branches)
+//       - store.go           (aggregation of new rate fields)
+//       - addons/inspect_tier.py (Python decoder, with version branches)
+//       - codec_test.go      (add a test that decodes the OLD format)
+//
+//  6. Always write a regression test that constructs a binary payload in the
+//     OLD format and verifies decodeSample handles it. See
+//     TestDecodePostgresV1Block and TestDecodeOldAggregatedRecord.
+// ----------------------------------------------------------------------------
+
 import (
 	"bytes"
 	"encoding/binary"
@@ -433,23 +471,44 @@ func appendVariable(buf []byte, s *collector.Sample) ([]byte, error) {
 		buf = appendF32(buf, ct.DiskWBPS)
 	}
 
-	// PostgreSQL (1-byte presence + 56-byte fixed block when present)
+	// PostgreSQL (1-byte presence + 104-byte fixed block when present)
+	//
+	// Layout (104 bytes):
+	//   [0:20]   ActiveConns, IdleConns, IdleInTxConns, WaitingConns, MaxConns  — 5×int32
+	//   [20:28]  TxCommitPS, TxRollbackPS                                       — 2×float32
+	//   [28:48]  TupFetchedPS, TupReturnedPS, TupInsertedPS, TupUpdatedPS,
+	//            TupDeletedPS                                                    — 5×float32
+	//   [48:60]  BlksReadPS, BlksHitPS, BlksHitPct                              — 3×float32
+	//   [60:64]  DeadlocksPS                                                    — 1×float32
+	//   [64:72]  BufCheckpointPS, BufBackendPS                                  — 2×float32
+	//   [72:96]  DeadTuples, LiveTuples, AutovacuumCount                        — 3×int64
+	//   [96:104] DBSizeBytes                                                    — 1×int64
 	if s.Apps.Postgres != nil {
-		buf = append(buf, 1)
+		buf = append(buf, 2) // version 2: 104-byte block (version 1 was 56-byte)
 		pg := s.Apps.Postgres
-		var pb [56]byte
+		var pb [104]byte
 		binary.LittleEndian.PutUint32(pb[0:], uint32(int32(pg.ActiveConns)))
 		binary.LittleEndian.PutUint32(pb[4:], uint32(int32(pg.IdleConns)))
-		binary.LittleEndian.PutUint32(pb[8:], uint32(int32(pg.MaxConns)))
-		putF32(pb[12:], pg.TxCommitPS)
-		putF32(pb[16:], pg.TxRollbackPS)
-		putF32(pb[20:], pg.TupFetchedPS)
-		putF32(pb[24:], pg.TupInsertedPS)
-		putF32(pb[28:], pg.TupUpdatedPS)
-		putF32(pb[32:], pg.TupDeletedPS)
-		putF32(pb[36:], pg.BlksHitPct)
-		binary.LittleEndian.PutUint64(pb[40:], uint64(pg.DeadTuples))
-		binary.LittleEndian.PutUint64(pb[48:], uint64(pg.DBSizeBytes))
+		binary.LittleEndian.PutUint32(pb[8:], uint32(int32(pg.IdleInTxConns)))
+		binary.LittleEndian.PutUint32(pb[12:], uint32(int32(pg.WaitingConns)))
+		binary.LittleEndian.PutUint32(pb[16:], uint32(int32(pg.MaxConns)))
+		putF32(pb[20:], pg.TxCommitPS)
+		putF32(pb[24:], pg.TxRollbackPS)
+		putF32(pb[28:], pg.TupFetchedPS)
+		putF32(pb[32:], pg.TupReturnedPS)
+		putF32(pb[36:], pg.TupInsertedPS)
+		putF32(pb[40:], pg.TupUpdatedPS)
+		putF32(pb[44:], pg.TupDeletedPS)
+		putF32(pb[48:], pg.BlksReadPS)
+		putF32(pb[52:], pg.BlksHitPS)
+		putF32(pb[56:], pg.BlksHitPct)
+		putF32(pb[60:], pg.DeadlocksPS)
+		putF32(pb[64:], pg.BufCheckpointPS)
+		putF32(pb[68:], pg.BufBackendPS)
+		binary.LittleEndian.PutUint64(pb[72:], uint64(pg.DeadTuples))
+		binary.LittleEndian.PutUint64(pb[80:], uint64(pg.LiveTuples))
+		binary.LittleEndian.PutUint64(pb[88:], uint64(pg.AutovacuumCount))
+		binary.LittleEndian.PutUint64(pb[96:], uint64(pg.DBSizeBytes))
 		buf = append(buf, pb[:]...)
 	} else {
 		buf = append(buf, 0)
@@ -879,28 +938,63 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps bool) (int, error)
 		s.Apps.Containers = append(s.Apps.Containers, ct)
 	}
 
-	// PostgreSQL
+	// PostgreSQL — presence byte doubles as version tag:
+	//   0 = not present
+	//   1 = v1 format (56-byte block: 3×int32 + 7×float32 + 2×int64)
+	//   2 = v2 format (104-byte block: 5×int32 + 13×float32 + 4×int64)
 	if err := need(1, "postgres presence"); err != nil {
 		return off, err
 	}
-	pgPresent := data[off]; off++
-	if pgPresent != 0 {
-		if err := need(56, "postgres fields"); err != nil {
+	pgVersion := data[off]; off++
+	if pgVersion == 1 {
+		// v1: old 56-byte block (ActiveConns, IdleConns, MaxConns,
+		//   TxCommitPS, TxRollbackPS, TupFetchedPS, TupInsertedPS,
+		//   TupUpdatedPS, TupDeletedPS, BlksHitPct, DeadTuples, DBSizeBytes)
+		if err := need(56, "postgres v1 fields"); err != nil {
 			return off, err
 		}
 		pg := &collector.PostgresStats{}
-		pg.ActiveConns = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		pg.IdleConns = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		pg.MaxConns = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		pg.TxCommitPS = getF32(data[off:]); off += 4
+		pg.ActiveConns  = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		pg.IdleConns    = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		pg.MaxConns     = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		pg.TxCommitPS   = getF32(data[off:]); off += 4
 		pg.TxRollbackPS = getF32(data[off:]); off += 4
 		pg.TupFetchedPS = getF32(data[off:]); off += 4
 		pg.TupInsertedPS = getF32(data[off:]); off += 4
 		pg.TupUpdatedPS = getF32(data[off:]); off += 4
 		pg.TupDeletedPS = getF32(data[off:]); off += 4
-		pg.BlksHitPct = getF32(data[off:]); off += 4
-		pg.DeadTuples = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
-		pg.DBSizeBytes = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
+		pg.BlksHitPct   = getF32(data[off:]); off += 4
+		pg.DeadTuples   = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
+		pg.DBSizeBytes  = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
+		s.Apps.Postgres = pg
+	} else if pgVersion >= 2 {
+		// v2: 104-byte block with full metrics
+		if err := need(104, "postgres v2 fields"); err != nil {
+			return off, err
+		}
+		pg := &collector.PostgresStats{}
+		pg.ActiveConns    = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		pg.IdleConns      = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		pg.IdleInTxConns  = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		pg.WaitingConns   = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		pg.MaxConns       = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		pg.TxCommitPS     = getF32(data[off:]); off += 4
+		pg.TxRollbackPS   = getF32(data[off:]); off += 4
+		pg.TupFetchedPS   = getF32(data[off:]); off += 4
+		pg.TupReturnedPS  = getF32(data[off:]); off += 4
+		pg.TupInsertedPS  = getF32(data[off:]); off += 4
+		pg.TupUpdatedPS   = getF32(data[off:]); off += 4
+		pg.TupDeletedPS   = getF32(data[off:]); off += 4
+		pg.BlksReadPS     = getF32(data[off:]); off += 4
+		pg.BlksHitPS      = getF32(data[off:]); off += 4
+		pg.BlksHitPct     = getF32(data[off:]); off += 4
+		pg.DeadlocksPS    = getF32(data[off:]); off += 4
+		pg.BufCheckpointPS = getF32(data[off:]); off += 4
+		pg.BufBackendPS   = getF32(data[off:]); off += 4
+		pg.DeadTuples     = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
+		pg.LiveTuples     = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
+		pg.AutovacuumCount = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
+		pg.DBSizeBytes    = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
 		s.Apps.Postgres = pg
 	}
 

@@ -210,18 +210,43 @@ type ContainerStats struct {
 
 // PostgresStats holds PostgreSQL database metrics.
 type PostgresStats struct {
-	ActiveConns   int     `json:"active_conns"`
-	IdleConns     int     `json:"idle_conns"`
-	MaxConns      int     `json:"max_conns"`
-	TxCommitPS    float64 `json:"tx_commit_ps"`
-	TxRollbackPS  float64 `json:"tx_rollback_ps"`
+	// Connection state (from pg_stat_activity)
+	ActiveConns   int `json:"active_conns"`
+	IdleConns     int `json:"idle_conns"`
+	IdleInTxConns int `json:"idle_in_tx_conns"`
+	WaitingConns  int `json:"waiting_conns"`
+	MaxConns      int `json:"max_conns"`
+
+	// Transaction throughput (per-second rates from pg_stat_database)
+	TxCommitPS   float64 `json:"tx_commit_ps"`
+	TxRollbackPS float64 `json:"tx_rollback_ps"`
+
+	// Tuple (row) activity rates
 	TupFetchedPS  float64 `json:"tup_fetched_ps"`
+	TupReturnedPS float64 `json:"tup_returned_ps"`
 	TupInsertedPS float64 `json:"tup_inserted_ps"`
 	TupUpdatedPS  float64 `json:"tup_updated_ps"`
 	TupDeletedPS  float64 `json:"tup_deleted_ps"`
-	BlksHitPct    float64 `json:"blks_hit_pct"`
-	DeadTuples    int64   `json:"dead_tuples"`
-	DBSizeBytes   int64   `json:"db_size_bytes"`
+
+	// I/O: raw block rates and derived cache hit ratio
+	BlksReadPS float64 `json:"blks_read_ps"`
+	BlksHitPS  float64 `json:"blks_hit_ps"`
+	BlksHitPct float64 `json:"blks_hit_pct"`
+
+	// Locking
+	DeadlocksPS float64 `json:"deadlocks_ps"`
+
+	// Table health (from pg_stat_user_tables)
+	DeadTuples      int64 `json:"dead_tuples"`
+	LiveTuples      int64 `json:"live_tuples"`
+	AutovacuumCount int64 `json:"autovacuum_count"`
+
+	// Background writer rates (from pg_stat_bgwriter)
+	BufCheckpointPS float64 `json:"buf_checkpoint_ps"`
+	BufBackendPS    float64 `json:"buf_backend_ps"`
+
+	// Database size
+	DBSizeBytes int64 `json:"db_size_bytes"`
 }
 
 // CustomMetricValue holds a single named metric value from external input.

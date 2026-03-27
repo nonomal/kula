@@ -118,7 +118,9 @@ export function destroyAppCharts() {
 
     // Remove dynamically created nginx/postgres cards
     ['card-nginx-connections', 'card-nginx-requests', 'card-nginx-rw',
-     'card-pg-connections', 'card-pg-throughput', 'card-pg-buffers'].forEach(id => {
+     'card-pg-connections', 'card-pg-tps', 'card-pg-locks',
+     'card-pg-tuples', 'card-pg-io', 'card-pg-cache-hit',
+     'card-pg-table-health', 'card-pg-bgwriter'].forEach(id => {
         document.getElementById(id)?.remove();
     });
 }

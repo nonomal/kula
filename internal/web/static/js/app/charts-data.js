@@ -502,46 +502,134 @@ export function addSampleToCharts(item, ts) {
         const pg = s.apps.postgres;
         appsVisible = true;
 
-        if (!state.charts.pgConns) {
-            createAppChartCard('card-pg-connections', 'chart-pg-connections', 'pg-conn-subtitle', 'PostgreSQL \u2014 Connections', APP_ORDER_POSTGRES);
-            state.charts.pgConns = createTimeSeriesChart('chart-pg-connections', [
-                { label: 'Active', borderColor: colors.blue, data: [], fill: false },
-                { label: 'Idle', borderColor: colors.yellow, data: [], fill: false },
-                { label: 'Max', borderColor: colors.red, data: [], fill: false, borderDash: [4, 2] },
+        // 1. Connection States (stacked area)
+        if (!state.charts.pgConnStates) {
+            createAppChartCard('card-pg-connections', 'chart-pg-connections', 'pg-conn-subtitle', 'PostgreSQL \u2014 Connection States', APP_ORDER_POSTGRES);
+            state.charts.pgConnStates = createTimeSeriesChart('chart-pg-connections', [
+                { label: 'Active',          borderColor: colors.blue,   backgroundColor: colors.blueAlpha,   fill: true,  data: [] },
+                { label: 'Idle',            borderColor: colors.green,  backgroundColor: colors.greenAlpha,  fill: true,  data: [] },
+                { label: 'Idle in Tx',      borderColor: colors.orange, backgroundColor: colors.orangeAlpha, fill: true,  data: [] },
+                { label: 'Waiting',         borderColor: colors.red,    backgroundColor: colors.redAlpha,    fill: true,  data: [] },
+                { label: 'Max Connections', borderColor: colors.purple, data: [], fill: false, borderDash: [4, 2] },
             ]);
         }
-        if (state.charts.pgConns) {
-            state.charts.pgConns.data.datasets[0].data.push(point(pg.active_conns));
-            state.charts.pgConns.data.datasets[1].data.push(point(pg.idle_conns));
-            state.charts.pgConns.data.datasets[2].data.push(point(pg.max_conns));
+        if (state.charts.pgConnStates) {
+            state.charts.pgConnStates.data.datasets[0].data.push(point(pg.active_conns));
+            state.charts.pgConnStates.data.datasets[1].data.push(point(pg.idle_conns));
+            state.charts.pgConnStates.data.datasets[2].data.push(point(pg.idle_in_tx_conns));
+            state.charts.pgConnStates.data.datasets[3].data.push(point(pg.waiting_conns));
+            state.charts.pgConnStates.data.datasets[4].data.push(point(pg.max_conns));
             const sub = document.getElementById('pg-conn-subtitle');
-            if (sub) sub.textContent = `Active: ${pg.active_conns}  Idle: ${pg.idle_conns}  Max: ${pg.max_conns}`;
+            if (sub) sub.textContent = `Active: ${pg.active_conns}  Idle: ${pg.idle_conns}  IdleTx: ${pg.idle_in_tx_conns}  Wait: ${pg.waiting_conns}`;
         }
 
-        if (!state.charts.pgThroughput) {
-            createAppChartCard('card-pg-throughput', 'chart-pg-throughput', 'pg-tps-subtitle', 'PostgreSQL \u2014 TPS', APP_ORDER_POSTGRES + 1);
-            state.charts.pgThroughput = createTimeSeriesChart('chart-pg-throughput', [
-                { label: 'Commits/s', borderColor: colors.green, backgroundColor: colors.greenAlpha, fill: true, data: [] },
-                { label: 'Rollbacks/s', borderColor: colors.red, data: [], fill: false },
+        // 2. Transactions per Second
+        if (!state.charts.pgTPS) {
+            createAppChartCard('card-pg-tps', 'chart-pg-tps', 'pg-tps-subtitle', 'PostgreSQL \u2014 Transactions/s', APP_ORDER_POSTGRES + 1);
+            state.charts.pgTPS = createTimeSeriesChart('chart-pg-tps', [
+                { label: 'Commits/s',   borderColor: colors.green, backgroundColor: colors.greenAlpha, fill: true, data: [] },
+                { label: 'Rollbacks/s', borderColor: colors.red,   data: [], fill: false },
             ]);
         }
-        if (state.charts.pgThroughput) {
-            state.charts.pgThroughput.data.datasets[0].data.push(point(pg.tx_commit_ps));
-            state.charts.pgThroughput.data.datasets[1].data.push(point(pg.tx_rollback_ps));
+        if (state.charts.pgTPS) {
+            state.charts.pgTPS.data.datasets[0].data.push(point(pg.tx_commit_ps));
+            state.charts.pgTPS.data.datasets[1].data.push(point(pg.tx_rollback_ps));
             const sub = document.getElementById('pg-tps-subtitle');
-            if (sub) sub.textContent = `TPS: ${(pg.tx_commit_ps || 0).toFixed(1)}  Rollbacks/s: ${(pg.tx_rollback_ps || 0).toFixed(1)}`;
+            if (sub) sub.textContent = `Commits/s: ${(pg.tx_commit_ps || 0).toFixed(1)}  Rollbacks/s: ${(pg.tx_rollback_ps || 0).toFixed(1)}`;
         }
 
-        if (!state.charts.pgBuffers) {
-            createAppChartCard('card-pg-buffers', 'chart-pg-buffers', 'pg-buffers-subtitle', 'PostgreSQL \u2014 Buffer Hit Ratio', APP_ORDER_POSTGRES + 2);
-            state.charts.pgBuffers = createTimeSeriesChart('chart-pg-buffers', [
-                { label: 'Buffer Hit %', borderColor: colors.green, backgroundColor: colors.greenAlpha, fill: true, data: [] },
-            ], { max: 100, ticks: { callback: v => v.toFixed(1) + '%' } });
+        // 3. Lock Waits & Deadlocks
+        if (!state.charts.pgLocks) {
+            createAppChartCard('card-pg-locks', 'chart-pg-locks', 'pg-locks-subtitle', 'PostgreSQL \u2014 Lock Waits & Deadlocks', APP_ORDER_POSTGRES + 2);
+            state.charts.pgLocks = createTimeSeriesChart('chart-pg-locks', [
+                { label: 'Lock Waits',   borderColor: colors.orange, backgroundColor: colors.orangeAlpha, fill: true, data: [] },
+                { label: 'Deadlocks/s',  borderColor: colors.red,    data: [], fill: false },
+            ]);
         }
-        if (state.charts.pgBuffers) {
-            state.charts.pgBuffers.data.datasets[0].data.push(point(pg.blks_hit_pct));
-            const sub = document.getElementById('pg-buffers-subtitle');
+        if (state.charts.pgLocks) {
+            state.charts.pgLocks.data.datasets[0].data.push(point(pg.waiting_conns));
+            state.charts.pgLocks.data.datasets[1].data.push(point(pg.deadlocks_ps));
+            const sub = document.getElementById('pg-locks-subtitle');
+            if (sub) sub.textContent = `Lock Waits: ${pg.waiting_conns}  Deadlocks/s: ${(pg.deadlocks_ps || 0).toFixed(2)}`;
+        }
+
+        // 4. Row/Tuple Activity
+        if (!state.charts.pgTuples) {
+            createAppChartCard('card-pg-tuples', 'chart-pg-tuples', 'pg-tuples-subtitle', 'PostgreSQL \u2014 Row Activity', APP_ORDER_POSTGRES + 3);
+            state.charts.pgTuples = createTimeSeriesChart('chart-pg-tuples', [
+                { label: 'Fetched/s',  borderColor: colors.blue,   data: [], fill: false },
+                { label: 'Returned/s', borderColor: colors.cyan,   data: [], fill: false },
+                { label: 'Inserted/s', borderColor: colors.green,  data: [], fill: false },
+                { label: 'Updated/s',  borderColor: colors.yellow, data: [], fill: false },
+                { label: 'Deleted/s',  borderColor: colors.red,    data: [], fill: false },
+            ]);
+        }
+        if (state.charts.pgTuples) {
+            state.charts.pgTuples.data.datasets[0].data.push(point(pg.tup_fetched_ps));
+            state.charts.pgTuples.data.datasets[1].data.push(point(pg.tup_returned_ps));
+            state.charts.pgTuples.data.datasets[2].data.push(point(pg.tup_inserted_ps));
+            state.charts.pgTuples.data.datasets[3].data.push(point(pg.tup_updated_ps));
+            state.charts.pgTuples.data.datasets[4].data.push(point(pg.tup_deleted_ps));
+            const sub = document.getElementById('pg-tuples-subtitle');
+            if (sub) sub.textContent = `Fetched/s: ${(pg.tup_fetched_ps || 0).toFixed(1)}  Ins: ${(pg.tup_inserted_ps || 0).toFixed(1)}  Upd: ${(pg.tup_updated_ps || 0).toFixed(1)}  Del: ${(pg.tup_deleted_ps || 0).toFixed(1)}`;
+        }
+
+        // 5. Disk I/O vs Memory (blocks)
+        if (!state.charts.pgIO) {
+            createAppChartCard('card-pg-io', 'chart-pg-io', 'pg-io-subtitle', 'PostgreSQL \u2014 Disk I/O vs Cache', APP_ORDER_POSTGRES + 4);
+            state.charts.pgIO = createTimeSeriesChart('chart-pg-io', [
+                { label: 'Blks Hit/s',  borderColor: colors.green, backgroundColor: colors.greenAlpha, fill: true, data: [] },
+                { label: 'Blks Read/s', borderColor: colors.orange, data: [], fill: false },
+            ]);
+        }
+        if (state.charts.pgIO) {
+            state.charts.pgIO.data.datasets[0].data.push(point(pg.blks_hit_ps));
+            state.charts.pgIO.data.datasets[1].data.push(point(pg.blks_read_ps));
+            const sub = document.getElementById('pg-io-subtitle');
+            if (sub) sub.textContent = `Hit/s: ${(pg.blks_hit_ps || 0).toFixed(0)}  Read/s: ${(pg.blks_read_ps || 0).toFixed(0)}`;
+        }
+
+        // 6. Cache Hit Ratio
+        if (!state.charts.pgCacheHit) {
+            createAppChartCard('card-pg-cache-hit', 'chart-pg-cache-hit', 'pg-cache-subtitle', 'PostgreSQL \u2014 Cache Hit Ratio', APP_ORDER_POSTGRES + 5);
+            state.charts.pgCacheHit = createTimeSeriesChart('chart-pg-cache-hit', [
+                { label: 'Cache Hit %', borderColor: colors.green, backgroundColor: colors.greenAlpha, fill: true, data: [] },
+            ], { min: 0, max: 100, ticks: { callback: v => v.toFixed(1) + '%' } });
+        }
+        if (state.charts.pgCacheHit) {
+            state.charts.pgCacheHit.data.datasets[0].data.push(point(pg.blks_hit_pct));
+            const sub = document.getElementById('pg-cache-subtitle');
             if (sub) sub.textContent = `Hit: ${(pg.blks_hit_pct || 0).toFixed(1)}%`;
+        }
+
+        // 7. Table Health
+        if (!state.charts.pgTableHealth) {
+            createAppChartCard('card-pg-table-health', 'chart-pg-table-health', 'pg-table-subtitle', 'PostgreSQL \u2014 Table Health', APP_ORDER_POSTGRES + 6);
+            state.charts.pgTableHealth = createTimeSeriesChart('chart-pg-table-health', [
+                { label: 'Dead Tuples', borderColor: colors.red,   backgroundColor: colors.redAlpha,   fill: true, data: [] },
+                { label: 'Live Tuples', borderColor: colors.green, backgroundColor: colors.greenAlpha, fill: true, data: [] },
+            ]);
+        }
+        if (state.charts.pgTableHealth) {
+            state.charts.pgTableHealth.data.datasets[0].data.push(point(pg.dead_tuples));
+            state.charts.pgTableHealth.data.datasets[1].data.push(point(pg.live_tuples));
+            const sub = document.getElementById('pg-table-subtitle');
+            if (sub) sub.textContent = `Dead: ${(pg.dead_tuples || 0).toLocaleString()}  Live: ${(pg.live_tuples || 0).toLocaleString()}  Vacuums: ${pg.autovacuum_count || 0}`;
+        }
+
+        // 8. Background Writer
+        if (!state.charts.pgBgwriter) {
+            createAppChartCard('card-pg-bgwriter', 'chart-pg-bgwriter', 'pg-bgwriter-subtitle', 'PostgreSQL \u2014 Background Writer', APP_ORDER_POSTGRES + 7);
+            state.charts.pgBgwriter = createTimeSeriesChart('chart-pg-bgwriter', [
+                { label: 'Checkpoint Bufs/s', borderColor: colors.blue,   backgroundColor: colors.blueAlpha,   fill: true, data: [] },
+                { label: 'Backend Bufs/s',    borderColor: colors.orange, data: [], fill: false },
+            ]);
+        }
+        if (state.charts.pgBgwriter) {
+            state.charts.pgBgwriter.data.datasets[0].data.push(point(pg.buf_checkpoint_ps));
+            state.charts.pgBgwriter.data.datasets[1].data.push(point(pg.buf_backend_ps));
+            const sub = document.getElementById('pg-bgwriter-subtitle');
+            if (sub) sub.textContent = `Checkpoint: ${(pg.buf_checkpoint_ps || 0).toFixed(1)}/s  Backend: ${(pg.buf_backend_ps || 0).toFixed(1)}/s`;
         }
     }
 

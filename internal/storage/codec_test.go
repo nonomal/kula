@@ -252,6 +252,107 @@ func TestDecodeOldAggregatedRecord(t *testing.T) {
 	}
 }
 
+// ---- TestDecodePostgresV1Block -----------------------------------------------
+// Regression test: records written with postgres v1 (56-byte block, presence=1)
+// must decode correctly when the current decoder expects v2 (104-byte block).
+// The presence byte doubles as a version tag: 1=old, 2=new.
+
+func TestDecodePostgresV1Block(t *testing.T) {
+	now := time.Now().Truncate(time.Millisecond)
+	sample := makeSampleFull(now)
+
+	// Add postgres data in the v1 layout and encode normally to get variable bytes.
+	sample.Data.Apps.Postgres = &collector.PostgresStats{
+		ActiveConns:  5,
+		IdleConns:    10,
+		MaxConns:     100,
+		TxCommitPS:   42.5,
+		TxRollbackPS: 0.3,
+		TupFetchedPS: 100.0,
+		TupInsertedPS: 10.0,
+		TupUpdatedPS: 5.0,
+		TupDeletedPS: 1.0,
+		BlksHitPct:   99.5,
+		DeadTuples:   500,
+		DBSizeBytes:  1024 * 1024 * 1024,
+	}
+	varBuf, err := appendVariable(nil, sample.Data)
+	if err != nil {
+		t.Fatalf("appendVariable: %v", err)
+	}
+
+	// The encoder writes presence=2 (v2, 104 bytes). Patch it to presence=1
+	// and replace with the old 56-byte layout to simulate an old record.
+	// Find the postgres presence byte: it's after nginx(1) + containers(2).
+	// We need to locate it by building a no-postgres variable section for comparison.
+	noPostgres := *sample.Data
+	noPostgres.Apps.Postgres = nil
+	noPgBuf, err := appendVariable(nil, &noPostgres)
+	if err != nil {
+		t.Fatalf("appendVariable (no pg): %v", err)
+	}
+	// In noPgBuf the postgres byte is 0; in varBuf it's 2 followed by 104 bytes.
+	// Find the divergence point — that's the postgres presence offset.
+	pgOff := -1
+	for i := 0; i < len(noPgBuf) && i < len(varBuf); i++ {
+		if noPgBuf[i] != varBuf[i] {
+			pgOff = i
+			break
+		}
+	}
+	if pgOff < 0 {
+		t.Fatal("could not find postgres presence byte offset")
+	}
+
+	// Build a v1-format variable buffer:
+	// everything before postgres + presence=1 + 56 bytes of v1 data + custom section.
+	var v1Var []byte
+	v1Var = append(v1Var, varBuf[:pgOff]...)  // up to postgres presence
+	v1Var = append(v1Var, 1)                   // v1 presence tag
+	// 56-byte v1 block: 3×int32 + 7×float32 + 2×int64
+	var pb [56]byte
+	binary.LittleEndian.PutUint32(pb[0:], uint32(int32(5)))    // ActiveConns
+	binary.LittleEndian.PutUint32(pb[4:], uint32(int32(10)))   // IdleConns
+	binary.LittleEndian.PutUint32(pb[8:], uint32(int32(100)))  // MaxConns
+	putF32(pb[12:], 42.5)   // TxCommitPS
+	putF32(pb[16:], 0.3)    // TxRollbackPS
+	putF32(pb[20:], 100.0)  // TupFetchedPS
+	putF32(pb[24:], 10.0)   // TupInsertedPS
+	putF32(pb[28:], 5.0)    // TupUpdatedPS
+	putF32(pb[32:], 1.0)    // TupDeletedPS
+	putF32(pb[36:], 99.5)   // BlksHitPct
+	binary.LittleEndian.PutUint64(pb[40:], uint64(500))                // DeadTuples
+	binary.LittleEndian.PutUint64(pb[48:], uint64(1024*1024*1024))     // DBSizeBytes
+	v1Var = append(v1Var, pb[:]...)
+	// Custom metrics section (empty): from after v2 postgres block to end
+	v1Var = append(v1Var, varBuf[pgOff+1+104:]...) // skip v2 presence+block, keep rest
+
+	// Decode the v1-format variable section
+	target := &collector.Sample{}
+	_, err = decodeVariable(v1Var, target, true)
+	if err != nil {
+		t.Fatalf("decodeVariable(v1 postgres) error: %v", err)
+	}
+	pg := target.Apps.Postgres
+	if pg == nil {
+		t.Fatal("expected Postgres to be non-nil")
+	}
+	if pg.ActiveConns != 5 || pg.IdleConns != 10 || pg.MaxConns != 100 {
+		t.Errorf("connection fields: active=%d idle=%d max=%d", pg.ActiveConns, pg.IdleConns, pg.MaxConns)
+	}
+	if pg.BlksHitPct < 99.0 {
+		t.Errorf("BlksHitPct = %v, want ~99.5", pg.BlksHitPct)
+	}
+	if pg.DBSizeBytes != 1024*1024*1024 {
+		t.Errorf("DBSizeBytes = %d, want %d", pg.DBSizeBytes, 1024*1024*1024)
+	}
+	// v1 fields that didn't exist should be zero-valued
+	if pg.IdleInTxConns != 0 || pg.WaitingConns != 0 || pg.DeadlocksPS != 0 {
+		t.Errorf("v2-only fields should be zero: idleTx=%d wait=%d deadlocks=%v",
+			pg.IdleInTxConns, pg.WaitingConns, pg.DeadlocksPS)
+	}
+}
+
 // ---- extractTimestamp -------------------------------------------------------
 
 func TestExtractTimestamp_HappyPath(t *testing.T) {

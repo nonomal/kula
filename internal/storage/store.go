@@ -798,29 +798,47 @@ func (s *Store) aggregateSamples(samples []*collector.Sample, dur time.Duration)
 
 		// Postgres rates
 		if avg.Apps.Postgres != nil {
-			var commitPS, rollPS, fetchPS, insPS, updPS, delPS, hitPct float64
+			var (
+				commitPS, rollPS                                    float64
+				fetchPS, retPS, insPS, updPS, delPS                float64
+				blksReadPS, blksHitPS, hitPct, deadlocksPS         float64
+				bufCkptPS, bufBackPS                               float64
+			)
 			count := 0
 			for _, s := range samples {
 				if s.Apps.Postgres != nil {
-					commitPS += s.Apps.Postgres.TxCommitPS
-					rollPS += s.Apps.Postgres.TxRollbackPS
-					fetchPS += s.Apps.Postgres.TupFetchedPS
-					insPS += s.Apps.Postgres.TupInsertedPS
-					updPS += s.Apps.Postgres.TupUpdatedPS
-					delPS += s.Apps.Postgres.TupDeletedPS
-					hitPct += s.Apps.Postgres.BlksHitPct
+					pg := s.Apps.Postgres
+					commitPS   += pg.TxCommitPS
+					rollPS     += pg.TxRollbackPS
+					fetchPS    += pg.TupFetchedPS
+					retPS      += pg.TupReturnedPS
+					insPS      += pg.TupInsertedPS
+					updPS      += pg.TupUpdatedPS
+					delPS      += pg.TupDeletedPS
+					blksReadPS += pg.BlksReadPS
+					blksHitPS  += pg.BlksHitPS
+					hitPct     += pg.BlksHitPct
+					deadlocksPS += pg.DeadlocksPS
+					bufCkptPS  += pg.BufCheckpointPS
+					bufBackPS  += pg.BufBackendPS
 					count++
 				}
 			}
 			if count > 0 {
 				fC := float64(count)
-				avg.Apps.Postgres.TxCommitPS = roundF(commitPS / fC)
-				avg.Apps.Postgres.TxRollbackPS = roundF(rollPS / fC)
-				avg.Apps.Postgres.TupFetchedPS = roundF(fetchPS / fC)
-				avg.Apps.Postgres.TupInsertedPS = roundF(insPS / fC)
-				avg.Apps.Postgres.TupUpdatedPS = roundF(updPS / fC)
-				avg.Apps.Postgres.TupDeletedPS = roundF(delPS / fC)
-				avg.Apps.Postgres.BlksHitPct = roundF(hitPct / fC)
+				avg.Apps.Postgres.TxCommitPS      = roundF(commitPS / fC)
+				avg.Apps.Postgres.TxRollbackPS    = roundF(rollPS / fC)
+				avg.Apps.Postgres.TupFetchedPS    = roundF(fetchPS / fC)
+				avg.Apps.Postgres.TupReturnedPS   = roundF(retPS / fC)
+				avg.Apps.Postgres.TupInsertedPS   = roundF(insPS / fC)
+				avg.Apps.Postgres.TupUpdatedPS    = roundF(updPS / fC)
+				avg.Apps.Postgres.TupDeletedPS    = roundF(delPS / fC)
+				avg.Apps.Postgres.BlksReadPS      = roundF(blksReadPS / fC)
+				avg.Apps.Postgres.BlksHitPS       = roundF(blksHitPS / fC)
+				avg.Apps.Postgres.BlksHitPct      = roundF(hitPct / fC)
+				avg.Apps.Postgres.DeadlocksPS     = roundF(deadlocksPS / fC)
+				avg.Apps.Postgres.BufCheckpointPS = roundF(bufCkptPS / fC)
+				avg.Apps.Postgres.BufBackendPS    = roundF(bufBackPS / fC)
 			}
 		}
 

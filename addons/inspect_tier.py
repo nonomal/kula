@@ -260,7 +260,7 @@ def _decode_fixed(data: bytes, off: int) -> Tuple[Dict[str, Any], int]:
 #   5. System strings:      hostname (str8), clock_source (str8)
 #   6. GPU entries:         uint16 count + per-GPU entries
 #   7. Application metrics: nginx (1B+52B), containers (u16+var),
-#                           postgres (1B+56B), custom (u16 groups+var)
+#                           postgres (1B version + 56B or 104B), custom (u16 groups+var)
 # ---------------------------------------------------------------------------
 
 
@@ -466,9 +466,12 @@ def _decode_variable(
     if containers:
         apps["containers"] = containers
 
-    # 7c. PostgreSQL (1-byte presence + 56-byte fixed block)
-    pg_present, off = _get_u8(data, off)
-    if pg_present != 0:
+    # 7c. PostgreSQL — version-tagged presence byte:
+    #   0 = not present
+    #   1 = v1 (56-byte block: 3×i32 + 7×f32 + 2×i64)
+    #   2 = v2 (104-byte block: 5×i32 + 13×f32 + 4×i64)
+    pg_version, off = _get_u8(data, off)
+    if pg_version == 1:
         active_conns, off = _get_i32(data, off)
         idle_conns, off = _get_i32(data, off)
         max_conns, off = _get_i32(data, off)
@@ -482,6 +485,7 @@ def _decode_variable(
         dead_tuples, off = _get_i64(data, off)
         db_size_bytes, off = _get_i64(data, off)
         apps["postgres"] = {
+            "version": 1,
             "active_conns": active_conns,
             "idle_conns": idle_conns,
             "max_conns": max_conns,
@@ -493,6 +497,54 @@ def _decode_variable(
             "tup_deleted_ps": tup_deleted_ps,
             "blks_hit_pct": blks_hit_pct,
             "dead_tuples": dead_tuples,
+            "db_size_bytes": db_size_bytes,
+        }
+    elif pg_version >= 2:
+        active_conns, off = _get_i32(data, off)
+        idle_conns, off = _get_i32(data, off)
+        idle_in_tx_conns, off = _get_i32(data, off)
+        waiting_conns, off = _get_i32(data, off)
+        max_conns, off = _get_i32(data, off)
+        tx_commit_ps, off = _get_f32(data, off)
+        tx_rollback_ps, off = _get_f32(data, off)
+        tup_fetched_ps, off = _get_f32(data, off)
+        tup_returned_ps, off = _get_f32(data, off)
+        tup_inserted_ps, off = _get_f32(data, off)
+        tup_updated_ps, off = _get_f32(data, off)
+        tup_deleted_ps, off = _get_f32(data, off)
+        blks_read_ps, off = _get_f32(data, off)
+        blks_hit_ps, off = _get_f32(data, off)
+        blks_hit_pct, off = _get_f32(data, off)
+        deadlocks_ps, off = _get_f32(data, off)
+        buf_checkpoint_ps, off = _get_f32(data, off)
+        buf_backend_ps, off = _get_f32(data, off)
+        dead_tuples, off = _get_i64(data, off)
+        live_tuples, off = _get_i64(data, off)
+        autovacuum_count, off = _get_i64(data, off)
+        db_size_bytes, off = _get_i64(data, off)
+        apps["postgres"] = {
+            "version": 2,
+            "active_conns": active_conns,
+            "idle_conns": idle_conns,
+            "idle_in_tx_conns": idle_in_tx_conns,
+            "waiting_conns": waiting_conns,
+            "max_conns": max_conns,
+            "tx_commit_ps": tx_commit_ps,
+            "tx_rollback_ps": tx_rollback_ps,
+            "tup_fetched_ps": tup_fetched_ps,
+            "tup_returned_ps": tup_returned_ps,
+            "tup_inserted_ps": tup_inserted_ps,
+            "tup_updated_ps": tup_updated_ps,
+            "tup_deleted_ps": tup_deleted_ps,
+            "blks_read_ps": blks_read_ps,
+            "blks_hit_ps": blks_hit_ps,
+            "blks_hit_pct": blks_hit_pct,
+            "deadlocks_ps": deadlocks_ps,
+            "buf_checkpoint_ps": buf_checkpoint_ps,
+            "buf_backend_ps": buf_backend_ps,
+            "dead_tuples": dead_tuples,
+            "live_tuples": live_tuples,
+            "autovacuum_count": autovacuum_count,
             "db_size_bytes": db_size_bytes,
         }
 
