@@ -15,10 +15,18 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 - Containers monitoring: docker/podman with raw cgroups fallback
 - Custom metrics monitoring via unix socket
 - New build dependency: github.com/lib/pq
+- TCP retrans metric added to network monitoring
+- Initial PSU / Battery monitoring
+- Dashboard search
 
 ### Changed
 
 - Default value for default_aggregation to max
+- Dashboard gauges modifications, sparkline bg charts for up/dl
+
+### Fixed
+
+- bugfix: custom collection.interval handling (#13)
 
 ## [0.13.0] - 2026-03-24
 
