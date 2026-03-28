@@ -1152,6 +1152,24 @@ export function insertGapsInHistory(data, resolutionStr = '1s') {
         else if (resolutionStr.endsWith('h')) expectedInterval = num * 3600000;
     }
 
+    // Auto-detect actual data interval from the median gap between the first
+    // samples.  The storage resolution can be "1s" even when collection.interval
+    // is e.g. 5s, which would cause every normal gap to be misclassified.
+    const sampleLimit = Math.min(data.length - 1, 20);
+    if (sampleLimit >= 3) {
+        const gaps = [];
+        for (let i = 0; i < sampleLimit; i++) {
+            const a = new Date(data[i].ts || data[i].data?.ts).getTime();
+            const b = new Date(data[i + 1].ts || data[i + 1].data?.ts).getTime();
+            gaps.push(b - a);
+        }
+        gaps.sort((a, b) => a - b);
+        const median = gaps[Math.floor(gaps.length / 2)];
+        if (median > expectedInterval) {
+            expectedInterval = median;
+        }
+    }
+
     const gapThreshold = expectedInterval * 2.5;
 
     const result = [];

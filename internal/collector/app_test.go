@@ -90,13 +90,13 @@ func TestPostgresCollectorMath(t *testing.T) {
 
 func TestPostgresDSN(t *testing.T) {
 	// TCP
-	pc1 := newPostgresCollector("localhost", 5432, "user", "pass", "db", "disable", false)
+	pc1 := newPostgresCollector("localhost", 5432, "user", "pass", "db", "disable", false, time.Second)
 	if !strings.Contains(pc1.dsn, "host=localhost") || !strings.Contains(pc1.dsn, "port=5432") {
 		t.Errorf("Unexpected TCP DSN: %s", pc1.dsn)
 	}
 
 	// Unix socket
-	pc2 := newPostgresCollector("/var/run/postgresql", 0, "user", "", "db", "disable", false)
+	pc2 := newPostgresCollector("/var/run/postgresql", 0, "user", "", "db", "disable", false, time.Second)
 	if !strings.Contains(pc2.dsn, "host=/var/run/postgresql") || strings.Contains(pc2.dsn, "port=") {
 		t.Errorf("Unexpected Unix DSN: %s", pc2.dsn)
 	}

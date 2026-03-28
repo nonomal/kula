@@ -65,6 +65,7 @@ func New(cfg config.GlobalConfig, collCfg config.CollectionConfig, appCfg config
 			SocketPath: appCfg.Containers.SocketPath,
 			Containers: appCfg.Containers.Containers,
 			DebugLog:   collCfg.DebugLog,
+			Interval:   collCfg.Interval,
 		})
 		c.containerColl = cc
 		cc.Start(ctx, collCfg.Interval)
@@ -81,6 +82,7 @@ func New(cfg config.GlobalConfig, collCfg config.CollectionConfig, appCfg config
 			appCfg.Postgres.DBName,
 			appCfg.Postgres.SSLMode,
 			collCfg.DebugLog,
+			collCfg.Interval,
 		)
 		log.Printf("[postgres] monitoring enabled for database %q", appCfg.Postgres.DBName)
 	}

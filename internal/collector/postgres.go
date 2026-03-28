@@ -35,12 +35,13 @@ type postgresCollector struct {
 	dbName       string
 	prev         pgRaw
 	debug        bool
-	wasConnected bool // tracks connection state for log transitions
+	wasConnected bool          // tracks connection state for log transitions
+	timeout      time.Duration // per-query/connect timeout, derived from collection interval
 }
 
 // newPostgresCollector builds the DSN and returns a collector (without connecting yet).
 // Connection is lazy — established on first Collect() call.
-func newPostgresCollector(host string, port int, user, password, dbname, sslmode string, debug bool) *postgresCollector {
+func newPostgresCollector(host string, port int, user, password, dbname, sslmode string, debug bool, timeout time.Duration) *postgresCollector {
 	var dsn string
 	if port == 0 {
 		// Unix socket mode: host is the socket directory
@@ -55,16 +56,17 @@ func newPostgresCollector(host string, port int, user, password, dbname, sslmode
 	}
 
 	return &postgresCollector{
-		dsn:    dsn,
-		dbName: dbname,
-		debug:  debug,
+		dsn:     dsn,
+		dbName:  dbname,
+		debug:   debug,
+		timeout: timeout,
 	}
 }
 
 // connect establishes (or verifies) the DB connection.
 func (pc *postgresCollector) connect() error {
 	if pc.db != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), pc.timeout)
 		defer cancel()
 		if err := pc.db.PingContext(ctx); err == nil {
 			return nil // already connected
@@ -89,7 +91,7 @@ func (pc *postgresCollector) connect() error {
 	db.SetMaxIdleConns(1)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), pc.timeout)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
@@ -121,7 +123,7 @@ func (c *Collector) collectPostgres(elapsed float64) *PostgresStats {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), c.collCfg.Interval)
 	defer cancel()
 
 	stats := &PostgresStats{}

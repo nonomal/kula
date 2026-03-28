@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // nginxRaw holds the raw cumulative counters from stub_status.
@@ -28,7 +27,7 @@ type nginxRaw struct {
 //	Reading: 0 Writing: 3 Waiting: 1
 func (c *Collector) collectNginx(elapsed float64) *NginxStats {
 	if c.nginxClient == nil {
-		c.nginxClient = &http.Client{Timeout: 2 * time.Second}
+		c.nginxClient = &http.Client{Timeout: c.collCfg.Interval}
 	}
 
 	resp, err := c.nginxClient.Get(c.appCfg.Nginx.StatusURL)

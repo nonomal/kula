@@ -46,6 +46,7 @@ type ContainersCollectorConfig struct {
 	SocketPath string
 	Containers []string
 	DebugLog   bool
+	Interval   time.Duration // collection interval, used for HTTP timeouts
 }
 
 type containerCPURaw struct {
@@ -136,11 +137,15 @@ func (cc *containerCollector) initHTTPClient() {
 	if cc.client != nil || cc.socket == "" {
 		return
 	}
+	timeout := cc.cfg.Interval
+	if timeout <= 0 {
+		timeout = time.Second
+	}
 	cc.client = &http.Client{
-		Timeout: 3 * time.Second,
+		Timeout: timeout,
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.DialTimeout("unix", cc.socket, 2*time.Second)
+				return net.DialTimeout("unix", cc.socket, timeout)
 			},
 		},
 	}
