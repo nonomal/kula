@@ -16,8 +16,8 @@ global:
   show_system_info: true
   # Toggle display of Kula version (default: true)
   show_version: true
-  # Default theme for the web UI: light or dark (default: dark)
-  default_theme: dark
+  # Default theme for the web UI: light, dark, or auto (default: auto)
+  default_theme: auto
 
 # Data collection settings
 collection:

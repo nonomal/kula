@@ -36,7 +36,7 @@ export const state = {
     focusVisible: JSON.parse(localStorage.getItem('kula_focus_visible') || 'null'),
     currentResolution: '1s', // resolution of data currently loaded in charts
     liveQueue: [],        // samples buffered while history is loading
-    theme: localStorage.getItem('kula_theme') || 'dark',
+    theme: localStorage.getItem('kula_theme') || 'auto',
     diskSpaceMountNames: [], // Not used as datasets anymore, but kept for compatibility
     cpuTempSensorNames: [],
     diskTempSensorNames: [],

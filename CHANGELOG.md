@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
+## [Unreleased]
+
+### Changed
+
+- Check prefers-color-scheme to honor user's requested theme
+- Default global.default_theme changed to auto
+
 ## [0.14.0] - 2026-03-29
 
 ### Added

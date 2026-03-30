@@ -191,7 +191,7 @@ func DefaultConfig() *Config {
 		Global: GlobalConfig{
 			ShowSystemInfo: true,
 			ShowVersion:    true,
-			DefaultTheme:   "dark",
+			DefaultTheme:   "auto",
 		},
 		Collection: CollectionConfig{
 			Interval:        time.Second,

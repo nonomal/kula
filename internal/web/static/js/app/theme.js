@@ -4,8 +4,15 @@
 'use strict';
 import { state, colors } from './state.js';
 
+function resolveTheme() {
+    if (state.theme === 'auto') {
+        return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    return state.theme;
+}
+
 export function applyTheme() {
-    const isLight = state.theme === 'light';
+    const isLight = resolveTheme() === 'light';
     document.body.classList.toggle('light-mode', isLight);
 
     // Update Chart.js defaults for future charts (if any re-init)
@@ -52,7 +59,8 @@ export function applyTheme() {
 }
 
 export function toggleTheme() {
-    state.theme = state.theme === 'dark' ? 'light' : 'dark';
+    const effective = resolveTheme();
+    state.theme = effective === 'dark' ? 'light' : 'dark';
     localStorage.setItem('kula_theme', state.theme);
     applyTheme();
 }

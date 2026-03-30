@@ -61,6 +61,11 @@ async function init() {
     // Apply stored theme
     applyTheme();
 
+    // Re-apply theme when OS preference changes (only effective in auto mode)
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+        if (state.theme === 'auto') applyTheme();
+    });
+
     // Apply stored focus mode
     applyStoredFocusMode();
 
