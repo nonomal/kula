@@ -227,11 +227,7 @@ func (t *Tier) Write(s *AggregatedSample) error {
 		_ = t.writeHeader()
 	}
 
-	// Update header periodically (every 10 writes to reduce I/O)
-	if t.count%10 == 0 {
-		return t.writeHeader()
-	}
-	return nil
+	return t.writeHeader()
 }
 
 // ReadRange returns all samples within [from, to].
