@@ -109,6 +109,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			s.wsMu.Unlock()
 			s.hub.unregCh <- client
+			close(client.sendCh)
 		})
 	}
 
