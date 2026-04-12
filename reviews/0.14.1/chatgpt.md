@@ -67,6 +67,10 @@ Keep the existing per-IP limit, then add a username-based limit and exponential 
 
 ### 3) Medium: Storage directory handling is inconsistent
 
+**Edit: Fixed**
+
+> Finding: Valid. One-line fix at store.go:96 — cfg.Directory → absDir. The directory is created with the absolute path but tier files were opened with the raw config value, which could diverge if the path is relative or the working directory changes at runtime.
+
 `NewStore()` computes `absDir` and creates that directory, but then it opens tier files with `filepath.Join(cfg.Directory, ...)` instead of `absDir`. Meanwhile, the config layer may rewrite the storage directory from `/var/lib/kula` to a home-directory fallback, and it also accepts `KULA_DIRECTORY`. That combination makes the path story more fragile than it needs to be, especially if someone supplies a relative directory or changes the working directory at runtime. ([GitHub][8])
 
 Recommended fix:

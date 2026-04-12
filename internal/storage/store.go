@@ -93,7 +93,7 @@ func NewStore(cfg config.StorageConfig) (*Store, error) {
 	}
 
 	for i, tc := range cfg.Tiers {
-		path := filepath.Join(cfg.Directory, fmt.Sprintf("tier_%d.dat", i))
+		path := filepath.Join(absDir, fmt.Sprintf("tier_%d.dat", i))
 		tier, err := OpenTier(path, tc.MaxBytes)
 		if err != nil {
 			// Close already opened tiers
