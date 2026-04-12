@@ -80,6 +80,8 @@ if portStr := os.Getenv("KULA_PORT"); portStr != "" {
 
 #### 🟠 HIGH: Path Traversal Risk in Custom Metrics
 
+**Edit: The finding is invalid — it's based on a fabricated code pattern that doesn't exist (hallucination)**
+
 **Location**: `internal/collectors/custom.go` (inferred from config structure)
 
 **Issue**: The `ApplicationsConfig.Custom` map allows user-defined metric scripts/commands. If these paths are not properly validated before execution, an attacker with config write access could achieve arbitrary command execution.
