@@ -1,6 +1,6 @@
 ---
 name: Blank issue
-about: Describe this issue template's purpose here.
+about: Create new issue from scratch
 title: ''
 labels: ''
 assignees: c0m4r
