@@ -159,7 +159,7 @@ rm -f ${KULA_INSTALL}
 
 ```bash
 wget https://github.com/c0m4r/kula/releases/download/0.15.0/kula-0.15.0-amd64.tar.gz
-echo "a80a6a86c18a76d6eb1bb9b2b6f2fe3fa3d1ac9bb9ec15e1eb107a0a3da7eb8d kula-0.15.0-amd64.tar.gz" | sha256sum -c || rm -f kula-0.15.0-amd64.tar.gz
+echo "92a189984672566cc3f31deee22926c25fbbf6370ba361f9b326fe43010b5d60 kula-0.15.0-amd64.tar.gz" | sha256sum -c || rm -f kula-0.15.0-amd64.tar.gz
 tar -xvf kula-0.15.0-amd64.tar.gz
 cd kula
 ./kula
@@ -184,7 +184,7 @@ docker logs -f kula
 
 ```bash
 wget https://github.com/c0m4r/kula/releases/download/0.15.0/kula-0.15.0-amd64.deb
-echo "7989fc04db0130d479acff6e408149a8ea81938d9e2356f96a166e00e2180586 kula-0.15.0-amd64.deb" | sha256sum -c || rm -f kula-0.15.0-amd64.deb
+echo "de193f1561375c6e55089f3b5af22d63205f42d6118608e5093344cc6b119e60 kula-0.15.0-amd64.deb" | sha256sum -c || rm -f kula-0.15.0-amd64.deb
 sudo dpkg -i kula-0.15.0-amd64.deb
 journalctl -f -t kula
 ```
@@ -193,7 +193,7 @@ journalctl -f -t kula
 
 ```bash
 wget https://github.com/c0m4r/kula/releases/download/0.15.0/kula-0.15.0-x86_64.rpm
-echo "801061279d0d577e6035b56697e47d5d71ab793cbed721d6069aac19fc19e8ed kula-0.15.0-x86_64.rpm" | sha256sum -c || rm -f kula-0.15.0-x86_64.rpm
+echo "36f1c968e7cbd7643a2d611221128d80596f27ff756bbee4dd5a33238a33cbb6 kula-0.15.0-x86_64.rpm" | sha256sum -c || rm -f kula-0.15.0-x86_64.rpm
 sudo rpm -i kula-0.15.0-x86_64.rpm
 journalctl -f -t kula
 ```
