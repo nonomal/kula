@@ -48,8 +48,6 @@ echo -e "2\n" | ./addons/build_aur.sh
 
 cd -
 
-tar -czf kula-$VERSION-aur.tar.gz kula-$VERSION-aur
-
 echo "Release done!"
 pwd
 ls -1 $(pwd)/*.tar.gz
