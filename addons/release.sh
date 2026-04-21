@@ -30,6 +30,7 @@ for f in kula-linux-* ; do
     cd kula
     ln -s . addons
     cd -
+    gzip -c "$f" > "${f}.gz"
     g="$(echo "$f" | sed 's/-linux//g;')"
     tar -czf "${g}.tar.gz" kula
     rm -rf kula
