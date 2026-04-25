@@ -554,6 +554,10 @@ func (s *Store) aggregateSamples(samples []*collector.Sample, dur time.Duration)
 		ngCopy := *last.Apps.Nginx
 		avg.Apps.Nginx = &ngCopy
 	}
+	if last.Apps.Apache2 != nil {
+		apCopy := *last.Apps.Apache2
+		avg.Apps.Apache2 = &apCopy
+	}
 	if len(last.Apps.Containers) > 0 {
 		avg.Apps.Containers = make([]collector.ContainerStats, len(last.Apps.Containers))
 		copy(avg.Apps.Containers, last.Apps.Containers)
@@ -690,6 +694,24 @@ func (s *Store) aggregateSamples(samples []*collector.Sample, dur time.Duration)
 				avg.Apps.Nginx.AcceptsPS = roundF(accPS / fC)
 				avg.Apps.Nginx.HandledPS = roundF(handPS / fC)
 				avg.Apps.Nginx.RequestsPS = roundF(reqPS / fC)
+			}
+		}
+
+		// Apache2 rates
+		if avg.Apps.Apache2 != nil {
+			var accPS, kbps float64
+			count := 0
+			for _, s := range samples {
+				if s.Apps.Apache2 != nil {
+					accPS += s.Apps.Apache2.AccessesPS
+					kbps += s.Apps.Apache2.KBytesPS
+					count++
+				}
+			}
+			if count > 0 {
+				fC := float64(count)
+				avg.Apps.Apache2.AccessesPS = roundF(accPS / fC)
+				avg.Apps.Apache2.KBytesPS = roundF(kbps / fC)
 			}
 		}
 

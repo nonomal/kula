@@ -14,6 +14,7 @@ import { addSampleToSplitCharts, updateSplitSelectors } from './split.js';
 
 // CSS order values for dynamic app chart grouping within the grid.
 const APP_ORDER_NGINX = 10;
+const APP_ORDER_APACHE2 = 15;
 const APP_ORDER_CONTAINERS = 20;
 const APP_ORDER_POSTGRES = 30;
 const APP_ORDER_CUSTOM = 40;
@@ -504,6 +505,60 @@ export function addSampleToCharts(item, ts) {
             state.charts.nginxRw.data.datasets[2].data.push(point(n.waiting));
             const sub = document.getElementById('nginx-rw-subtitle');
             if (sub) sub.textContent = `R: ${n.reading}  W: ${n.writing}  Wait: ${n.waiting}`;
+        }
+    }
+
+    // Apache2 — create charts on first data, push data, update subtitles
+    if (s.apps?.apache2) {
+        const a = s.apps.apache2;
+        appsVisible = true;
+
+        if (!state.charts.apache2Workers) {
+            createAppChartCard('card-apache2-workers', 'chart-apache2-workers', 'apache2-workers-subtitle', 'Apache2 \u2014 Workers', APP_ORDER_APACHE2);
+            state.charts.apache2Workers = createTimeSeriesChart('chart-apache2-workers', [
+                { label: 'Busy', borderColor: colors.orange, backgroundColor: colors.orangeAlpha, fill: true, data: [] },
+                { label: 'Idle', borderColor: colors.green, backgroundColor: colors.greenAlpha, fill: true, data: [] },
+            ]);
+        }
+        if (state.charts.apache2Workers) {
+            state.charts.apache2Workers.data.datasets[0].data.push(point(a.busy_workers));
+            state.charts.apache2Workers.data.datasets[1].data.push(point(a.idle_workers));
+            const sub = document.getElementById('apache2-workers-subtitle');
+            if (sub) sub.textContent = `Busy: ${a.busy_workers}  Idle: ${a.idle_workers}`;
+        }
+
+        if (!state.charts.apache2Tput) {
+            createAppChartCard('card-apache2-throughput', 'chart-apache2-throughput', 'apache2-tput-subtitle', 'Apache2 \u2014 Throughput', APP_ORDER_APACHE2 + 1);
+            state.charts.apache2Tput = createTimeSeriesChart('chart-apache2-throughput', [
+                { label: 'Accesses/s', borderColor: colors.green, data: [], fill: false },
+                { label: 'Req/s', borderColor: colors.blue, backgroundColor: colors.blueAlpha, fill: true, data: [] },
+                { label: 'kB/s', borderColor: colors.purple, data: [], fill: false },
+            ]);
+        }
+        if (state.charts.apache2Tput) {
+            state.charts.apache2Tput.data.datasets[0].data.push(point(a.accesses_ps));
+            state.charts.apache2Tput.data.datasets[1].data.push(point(a.req_per_sec));
+            state.charts.apache2Tput.data.datasets[2].data.push(point(a.kbytes_ps));
+            const sub = document.getElementById('apache2-tput-subtitle');
+            if (sub) sub.textContent = `Req/s: ${a.req_per_sec?.toFixed(1) || '0'}  kB/s: ${a.kbytes_ps?.toFixed(1) || '0'}`;
+        }
+
+        if (!state.charts.apache2States) {
+            createAppChartCard('card-apache2-states', 'chart-apache2-states', 'apache2-states-subtitle', 'Apache2 \u2014 Worker States', APP_ORDER_APACHE2 + 2);
+            state.charts.apache2States = createTimeSeriesChart('chart-apache2-states', [
+                { label: 'Waiting', borderColor: colors.yellow, data: [], fill: false },
+                { label: 'Reading', borderColor: colors.green, data: [], fill: false },
+                { label: 'Sending', borderColor: colors.orange, data: [], fill: false },
+                { label: 'Keepalive', borderColor: colors.blue, data: [], fill: false },
+            ]);
+        }
+        if (state.charts.apache2States) {
+            state.charts.apache2States.data.datasets[0].data.push(point(a.waiting));
+            state.charts.apache2States.data.datasets[1].data.push(point(a.reading));
+            state.charts.apache2States.data.datasets[2].data.push(point(a.sending));
+            state.charts.apache2States.data.datasets[3].data.push(point(a.keepalive));
+            const sub = document.getElementById('apache2-states-subtitle');
+            if (sub) sub.textContent = `W: ${a.waiting}  R: ${a.reading}  S: ${a.sending}  K: ${a.keepalive}`;
         }
     }
 

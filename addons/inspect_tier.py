@@ -435,7 +435,43 @@ def _decode_variable(
             "waiting": waiting,
         }
 
-    # 7b. Containers (uint16 count + variable per container)
+    # 7b. Apache2 (1-byte presence + 72-byte fixed block)
+    apache2_present, off = _get_u8(data, off)
+    if apache2_present != 0:
+        busy_workers, off = _get_i32(data, off)
+        idle_workers, off = _get_i32(data, off)
+        total_accesses, off = _get_u64(data, off)
+        total_kbytes, off = _get_u64(data, off)
+        accesses_ps, off = _get_f32(data, off)
+        kbytes_ps, off = _get_f32(data, off)
+        req_per_sec, off = _get_f32(data, off)
+        bytes_per_sec, off = _get_f32(data, off)
+        bytes_per_req, off = _get_f32(data, off)
+        cpu_load, off = _get_f32(data, off)
+        uptime, off = _get_i64(data, off)
+        waiting, off = _get_i32(data, off)
+        reading, off = _get_i32(data, off)
+        sending, off = _get_i32(data, off)
+        keepalive, off = _get_i32(data, off)
+        apps["apache2"] = {
+            "busy_workers": busy_workers,
+            "idle_workers": idle_workers,
+            "total_accesses": total_accesses,
+            "total_kbytes": total_kbytes,
+            "accesses_ps": accesses_ps,
+            "kbytes_ps": kbytes_ps,
+            "req_per_sec": req_per_sec,
+            "bytes_per_sec": bytes_per_sec,
+            "bytes_per_req": bytes_per_req,
+            "cpu_load": cpu_load,
+            "uptime": uptime,
+            "waiting": waiting,
+            "reading": reading,
+            "sending": sending,
+            "keepalive": keepalive,
+        }
+
+    # 7c. Containers (uint16 count + variable per container)
     num_containers, off = _get_u16(data, off)
     containers = []
     for _ in range(num_containers):
@@ -466,7 +502,7 @@ def _decode_variable(
     if containers:
         apps["containers"] = containers
 
-    # 7c. PostgreSQL — version-tagged presence byte:
+    # 7d. PostgreSQL — version-tagged presence byte:
     #   0 = not present
     #   1 = v1 (56-byte block: 3×i32 + 7×f32 + 2×i64)
     #   2 = v2 (104-byte block: 5×i32 + 13×f32 + 4×i64)
@@ -548,7 +584,7 @@ def _decode_variable(
             "db_size_bytes": db_size_bytes,
         }
 
-    # 7d. Custom metrics (uint16 group count, per group: str + uint16 metric count)
+    # 7e. Custom metrics (uint16 group count, per group: str + uint16 metric count)
     num_groups, off = _get_u16(data, off)
     custom: Dict[str, List[Dict[str, Any]]] = {}
     for _ in range(num_groups):

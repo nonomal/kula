@@ -177,6 +177,7 @@ type GPUStats struct {
 // ApplicationsStats holds metrics from external applications.
 type ApplicationsStats struct {
 	Nginx      *NginxStats                    `json:"nginx,omitempty"`
+	Apache2    *Apache2Stats                  `json:"apache2,omitempty"`
 	Containers []ContainerStats               `json:"containers,omitempty"`
 	Postgres   *PostgresStats                 `json:"postgres,omitempty"`
 	Custom     map[string][]CustomMetricValue  `json:"custom,omitempty"`
@@ -194,6 +195,25 @@ type NginxStats struct {
 	Reading           int     `json:"reading"`
 	Writing           int     `json:"writing"`
 	Waiting           int     `json:"waiting"`
+}
+
+// Apache2Stats holds metrics parsed from the Apache2 mod_status ?auto endpoint.
+type Apache2Stats struct {
+	BusyWorkers   int     `json:"busy_workers"`
+	IdleWorkers   int     `json:"idle_workers"`
+	TotalAccesses uint64  `json:"total_accesses"`
+	TotalKBytes   uint64  `json:"total_kbytes"`
+	AccessesPS    float64 `json:"accesses_ps"`
+	KBytesPS      float64 `json:"kbytes_ps"`
+	ReqPerSec     float64 `json:"req_per_sec"`
+	BytesPerSec   float64 `json:"bytes_per_sec"`
+	BytesPerReq   float64 `json:"bytes_per_req"`
+	CPULoad       float64 `json:"cpu_load"`
+	Uptime        int64   `json:"uptime"`
+	Waiting       int     `json:"waiting"`
+	Reading       int     `json:"reading"`
+	Sending       int     `json:"sending"`
+	Keepalive     int     `json:"keepalive"`
 }
 
 // ContainerStats holds per-container resource usage metrics.

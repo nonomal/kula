@@ -62,6 +62,179 @@ Reading: 6 Writing: 179 Waiting: 106
 	}
 }
 
+func TestApache2Collector(t *testing.T) {
+	stubOutput := `Total Accesses: 1234
+Total kBytes: 5678
+CPULoad: .12345
+Uptime: 12345
+ReqPerSec: .1
+BytesPerSec: 470.7
+BytesPerReq: 4707.21
+BusyWorkers: 3
+IdleWorkers: 7
+Scoreboard: _W___R___K...............................................
+`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(stubOutput))
+	}))
+	defer server.Close()
+
+	c := &Collector{
+		apacheClient: &http.Client{},
+		appCfg: config.ApplicationsConfig{
+			Apache2: config.Apache2Config{
+				Enabled:   true,
+				StatusURL: server.URL,
+			},
+		},
+	}
+
+	stats := c.collectApache2(1.0)
+	if stats == nil {
+		t.Fatal("Expected stats, got nil")
+	}
+
+	if stats.BusyWorkers != 3 {
+		t.Errorf("Expected BusyWorkers 3, got %d", stats.BusyWorkers)
+	}
+	if stats.IdleWorkers != 7 {
+		t.Errorf("Expected IdleWorkers 7, got %d", stats.IdleWorkers)
+	}
+	if stats.TotalAccesses != 1234 {
+		t.Errorf("Expected TotalAccesses 1234, got %d", stats.TotalAccesses)
+	}
+	if stats.TotalKBytes != 5678 {
+		t.Errorf("Expected TotalKBytes 5678, got %d", stats.TotalKBytes)
+	}
+	if stats.ReqPerSec != 0.1 {
+		t.Errorf("Expected ReqPerSec 0.1, got %f", stats.ReqPerSec)
+	}
+	if stats.BytesPerSec != 470.7 {
+		t.Errorf("Expected BytesPerSec 470.7, got %f", stats.BytesPerSec)
+	}
+	if stats.Uptime != 12345 {
+		t.Errorf("Expected Uptime 12345, got %d", stats.Uptime)
+	}
+	// Scoreboard: _ (waiting), W (sending), R (reading), K (keepalive), . (open slot, ignored)
+	if stats.Waiting < 1 || stats.Reading < 1 || stats.Sending < 1 || stats.Keepalive < 1 {
+		t.Errorf("Expected non-zero scoreboard states: W=%d R=%d S=%d K=%d",
+			stats.Waiting, stats.Reading, stats.Sending, stats.Keepalive)
+	}
+
+	// Test malformed output returns nil
+	badServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("not apache output"))
+	}))
+	defer badServer.Close()
+
+	c.appCfg.Apache2.StatusURL = badServer.URL
+	stats = c.collectApache2(1.0)
+	if stats != nil {
+		t.Error("Expected nil stats for malformed output")
+	}
+
+	// Test empty scoreboard still produces valid stats
+	noSB := `BusyWorkers: 1
+IdleWorkers: 5
+`
+	noSBServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(noSB))
+	}))
+	defer noSBServer.Close()
+
+	c.appCfg.Apache2.StatusURL = noSBServer.URL
+	c.prevApache = apache2Raw{} // reset
+	stats = c.collectApache2(1.0)
+	if stats == nil {
+		t.Fatal("Expected stats without scoreboard, got nil")
+	}
+	if stats.BusyWorkers != 1 || stats.IdleWorkers != 5 {
+		t.Errorf("Expected 1 busy, 5 idle; got %d, %d", stats.BusyWorkers, stats.IdleWorkers)
+	}
+
+	// Test multi-line scoreboard (e.g. large MPM event config)
+	multiSB := `BusyWorkers: 2
+IdleWorkers: 10
+Scoreboard: _W__R__K__...............................................
+_________W_______R___________________K__________________.............
+`
+	multiSBServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(multiSB))
+	}))
+	defer multiSBServer.Close()
+
+	c.appCfg.Apache2.StatusURL = multiSBServer.URL
+	c.prevApache = apache2Raw{} // reset
+	stats = c.collectApache2(1.0)
+	if stats == nil {
+		t.Fatal("Expected stats with multi-line scoreboard, got nil")
+	}
+	// Should count workers across BOTH scoreboard lines
+	if stats.Waiting < 2 || stats.Reading < 2 || stats.Sending < 2 || stats.Keepalive < 2 {
+		t.Errorf("Multi-line scoreboard undercounted: W=%d R=%d S=%d K=%d (all should be >= 2)",
+			stats.Waiting, stats.Reading, stats.Sending, stats.Keepalive)
+	}
+
+	// Test counter reset (service restart): previous counters are high,
+	// current counters reset to 0 — should NOT produce insane rates.
+	c.appCfg.Apache2.StatusURL = server.URL
+	c.prevApache = apache2Raw{totalAccesses: 50000000, totalKBytes: 100000000}
+	resetOutput := `Total Accesses: 100
+Total kBytes: 200
+`
+	resetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(resetOutput))
+	}))
+	defer resetServer.Close()
+	c.appCfg.Apache2.StatusURL = resetServer.URL
+	stats = c.collectApache2(1.0)
+	if stats == nil {
+		t.Fatal("Expected stats after counter reset, got nil")
+	}
+	if stats.AccessesPS != 0 || stats.KBytesPS != 0 {
+		t.Errorf("Expected 0 PS after counter reset, got AccessesPS=%g KBytesPS=%g",
+			stats.AccessesPS, stats.KBytesPS)
+	}
+}
+
+func TestNginxCollectorCounterReset(t *testing.T) {
+	stubOutput := `Active connections: 1 
+server accepts handled requests
+ 100 100 200 
+Reading: 0 Writing: 1 Waiting: 0 
+`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(stubOutput))
+	}))
+	defer server.Close()
+
+	c := &Collector{
+		nginxClient: &http.Client{},
+		appCfg: config.ApplicationsConfig{
+			Nginx: config.NginxConfig{
+				Enabled:   true,
+				StatusURL: server.URL,
+			},
+		},
+		prevNginx: nginxRaw{accepts: 50000000, handled: 50000000, requests: 100000000},
+	}
+
+	stats := c.collectNginx(1.0)
+	if stats == nil {
+		t.Fatal("Expected stats after nginx counter reset, got nil")
+	}
+	if stats.AcceptsPS != 0 || stats.HandledPS != 0 || stats.RequestsPS != 0 {
+		t.Errorf("Expected 0 PS after nginx counter reset, got A=%g H=%g R=%g",
+			stats.AcceptsPS, stats.HandledPS, stats.RequestsPS)
+	}
+}
+
 func TestPostgresCollectorMath(t *testing.T) {
 	pc := &postgresCollector{
 		prev: pgRaw{

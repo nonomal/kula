@@ -89,9 +89,11 @@ func (c *Collector) parseNginxStatus(body string, elapsed float64) *NginxStats {
 	// Compute per-second rates from deltas
 	cur := nginxRaw{accepts: accepts, handled: handled, requests: requests}
 	if c.prevNginx.accepts > 0 && elapsed > 0 {
-		stats.AcceptsPS = round2(float64(cur.accepts-c.prevNginx.accepts) / elapsed)
-		stats.HandledPS = round2(float64(cur.handled-c.prevNginx.handled) / elapsed)
-		stats.RequestsPS = round2(float64(cur.requests-c.prevNginx.requests) / elapsed)
+		if cur.accepts >= c.prevNginx.accepts {
+			stats.AcceptsPS = round2(float64(cur.accepts-c.prevNginx.accepts) / elapsed)
+			stats.HandledPS = round2(float64(cur.handled-c.prevNginx.handled) / elapsed)
+			stats.RequestsPS = round2(float64(cur.requests-c.prevNginx.requests) / elapsed)
+		}
 	}
 	c.prevNginx = cur
 

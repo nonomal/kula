@@ -151,6 +151,7 @@ type OllamaConfig struct {
 // ApplicationsConfig groups monitoring modules for external applications.
 type ApplicationsConfig struct {
 	Nginx      NginxConfig                    `yaml:"nginx"`
+	Apache2    Apache2Config                  `yaml:"apache2"`
 	Containers ContainersConfig               `yaml:"containers"`
 	Postgres   PostgresConfig                 `yaml:"postgres"`
 	Custom     map[string][]CustomMetricConfig `yaml:"custom"`
@@ -168,6 +169,15 @@ type CustomMetricConfig struct {
 // The status_url should point to the stub_status endpoint, e.g.
 // http://localhost/status
 type NginxConfig struct {
+	Enabled   bool   `yaml:"enabled"`
+	StatusURL string `yaml:"status_url"`
+}
+
+// Apache2Config controls monitoring via the Apache2 mod_status module.
+// The status_url should point to the auto-format endpoint, e.g.
+// http://localhost/server-status?auto
+// Requires: a2enmod status + httpd.conf: SetHandler server-status
+type Apache2Config struct {
 	Enabled   bool   `yaml:"enabled"`
 	StatusURL string `yaml:"status_url"`
 }
@@ -266,6 +276,10 @@ func DefaultConfig() *Config {
 			Nginx: NginxConfig{
 				Enabled:   false,
 				StatusURL: "http://localhost/status",
+			},
+			Apache2: Apache2Config{
+				Enabled:   false,
+				StatusURL: "http://localhost/server-status?auto",
 			},
 			Containers: ContainersConfig{
 				Enabled: true,

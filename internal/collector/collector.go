@@ -37,6 +37,8 @@ type Collector struct {
 	// Application monitoring state
 	nginxClient    *http.Client
 	prevNginx      nginxRaw
+	apacheClient   *http.Client
+	prevApache     apache2Raw
 	containerColl  *containerCollector
 	pgCollector    *postgresCollector
 	customColl     *customCollector
@@ -89,6 +91,10 @@ func New(cfg config.GlobalConfig, collCfg config.CollectionConfig, appCfg config
 
 	if appCfg.Nginx.Enabled {
 		log.Printf("[nginx] monitoring enabled at %s", appCfg.Nginx.StatusURL)
+	}
+
+	if appCfg.Apache2.Enabled {
+		log.Printf("[apache2] monitoring enabled at %s", appCfg.Apache2.StatusURL)
 	}
 
 	// Initialize custom metrics collector if any groups are configured
@@ -190,6 +196,10 @@ func (c *Collector) collectApps(elapsed float64) ApplicationsStats {
 
 	if c.appCfg.Nginx.Enabled {
 		apps.Nginx = c.collectNginx(elapsed)
+	}
+
+	if c.appCfg.Apache2.Enabled {
+		apps.Apache2 = c.collectApache2(elapsed)
 	}
 
 	if c.containerColl != nil {

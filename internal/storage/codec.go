@@ -448,6 +448,31 @@ func appendVariable(buf []byte, s *collector.Sample) ([]byte, error) {
 		buf = append(buf, 0)
 	}
 
+	// Apache2 (1-byte presence + 72-byte fixed block when present)
+	if s.Apps.Apache2 != nil {
+		buf = append(buf, 1)
+		a := s.Apps.Apache2
+		var ab [72]byte
+		binary.LittleEndian.PutUint32(ab[0:], uint32(int32(a.BusyWorkers)))
+		binary.LittleEndian.PutUint32(ab[4:], uint32(int32(a.IdleWorkers)))
+		binary.LittleEndian.PutUint64(ab[8:], a.TotalAccesses)
+		binary.LittleEndian.PutUint64(ab[16:], a.TotalKBytes)
+		putF32(ab[24:], a.AccessesPS)
+		putF32(ab[28:], a.KBytesPS)
+		putF32(ab[32:], a.ReqPerSec)
+		putF32(ab[36:], a.BytesPerSec)
+		putF32(ab[40:], a.BytesPerReq)
+		putF32(ab[44:], a.CPULoad)
+		binary.LittleEndian.PutUint64(ab[48:], uint64(a.Uptime))
+		binary.LittleEndian.PutUint32(ab[56:], uint32(int32(a.Waiting)))
+		binary.LittleEndian.PutUint32(ab[60:], uint32(int32(a.Reading)))
+		binary.LittleEndian.PutUint32(ab[64:], uint32(int32(a.Sending)))
+		binary.LittleEndian.PutUint32(ab[68:], uint32(int32(a.Keepalive)))
+		buf = append(buf, ab[:]...)
+	} else {
+		buf = append(buf, 0)
+	}
+
 	// Containers (uint16 count + variable per container)
 	ctCount := len(s.Apps.Containers)
 	if ctCount > 65535 {
@@ -900,6 +925,31 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps bool) (int, error)
 		ng.Writing = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
 		ng.Waiting = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
 		s.Apps.Nginx = ng
+	}
+
+	// Apache2
+	apache2Present := data[off]; off++
+	if apache2Present != 0 {
+		if err := need(72, "apache2 fields"); err != nil {
+			return off, err
+		}
+		ap := &collector.Apache2Stats{}
+		ap.BusyWorkers = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		ap.IdleWorkers = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		ap.TotalAccesses = binary.LittleEndian.Uint64(data[off:]); off += 8
+		ap.TotalKBytes = binary.LittleEndian.Uint64(data[off:]); off += 8
+		ap.AccessesPS = getF32(data[off:]); off += 4
+		ap.KBytesPS = getF32(data[off:]); off += 4
+		ap.ReqPerSec = getF32(data[off:]); off += 4
+		ap.BytesPerSec = getF32(data[off:]); off += 4
+		ap.BytesPerReq = getF32(data[off:]); off += 4
+		ap.CPULoad = getF32(data[off:]); off += 4
+		ap.Uptime = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
+		ap.Waiting = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		ap.Reading = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		ap.Sending = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		ap.Keepalive = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		s.Apps.Apache2 = ap
 	}
 
 	// Containers

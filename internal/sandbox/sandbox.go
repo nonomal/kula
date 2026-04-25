@@ -109,6 +109,22 @@ func Enforce(configPath string, storageDir string, webPort int, appCfg config.Ap
 		}
 	}
 
+	// Apache2: allow outbound TCP connection to the status URL port
+	if appCfg.Apache2.Enabled && appCfg.Apache2.StatusURL != "" {
+		if u, err := url.Parse(appCfg.Apache2.StatusURL); err == nil {
+			port := 80
+			if u.Port() != "" {
+				if p, err := strconv.Atoi(u.Port()); err == nil && p > 0 && p <= 65535 {
+					port = p
+				}
+			} else if u.Scheme == "https" {
+				port = 443
+			}
+			netRules = append(netRules, landlock.ConnectTCP(uint16(port)))
+			appInfo = append(appInfo, fmt.Sprintf("apache2:connect-tcp/%d", port))
+		}
+	}
+
 	// Containers: allow read access to the runtime socket
 	if appCfg.Containers.Enabled {
 		socketPath := appCfg.Containers.SocketPath

@@ -166,6 +166,17 @@ applications:
     enabled: false
     status_url: "http://localhost/status"
 
+  # Apache2 monitoring via the mod_status module
+  # Requires: a2enmod status + httpd.conf:
+  #   <Location /server-status>
+  #     SetHandler server-status
+  #     Require local
+  #   </Location>
+  # ExtendedStatus On is recommended for full scoreboard detail.
+  apache2:
+    enabled: false
+    status_url: "http://localhost/server-status?auto"
+
   # Container monitoring (Docker / Podman)
   # Discovery modes (logged at startup):
   #   - "socket": uses the container runtime API for discovery + cgroups v2 for metrics

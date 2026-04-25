@@ -122,8 +122,9 @@ export function destroyAppCharts() {
     });
     state.psuCharts = {};
 
-    // Remove dynamically created nginx/postgres cards
+    // Remove dynamically created nginx/apache2/postgres cards
     ['card-nginx-connections', 'card-nginx-requests', 'card-nginx-rw',
+     'card-apache2-workers', 'card-apache2-throughput', 'card-apache2-states',
      'card-pg-connections', 'card-pg-tps', 'card-pg-locks',
      'card-pg-tuples', 'card-pg-io', 'card-pg-cache-hit',
      'card-pg-table-health', 'card-pg-bgwriter'].forEach(id => {
