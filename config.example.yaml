@@ -234,6 +234,25 @@ applications:
     dbname: "postgres"
     sslmode: "disable"
 
+  # MySQL monitoring
+  # Connects via go-sql-driver/mysql. Supports TCP and Unix socket.
+  # For Unix socket: set host to the socket path (e.g. /var/run/mysqld/mysqld.sock), port to 0.
+  #
+  # Quick setup — create a read-only monitoring user:
+  #   sudo mysql
+  #   CREATE USER 'kula_monitor'@'127.0.0.1' IDENTIFIED BY 'changeme';
+  #   GRANT PROCESS, REPLICATION CLIENT ON *.* TO 'kula_monitor'@'127.0.0.1';
+  #   FLUSH PRIVILEGES;
+  #
+  # Then reload: sudo systemctl reload mysql
+  mysql:
+    enabled: false
+    host: "localhost"
+    port: 3306
+    user: "kula_monitor"
+    password: ""
+    dbname: "mysql"
+
 # TUI settings
 tui:
   refresh_rate: 1s

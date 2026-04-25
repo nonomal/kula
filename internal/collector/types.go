@@ -180,6 +180,7 @@ type ApplicationsStats struct {
 	Apache2    *Apache2Stats                  `json:"apache2,omitempty"`
 	Containers []ContainerStats               `json:"containers,omitempty"`
 	Postgres   *PostgresStats                 `json:"postgres,omitempty"`
+	Mysql      *MysqlStats                    `json:"mysql,omitempty"`
 	Custom     map[string][]CustomMetricValue  `json:"custom,omitempty"`
 }
 
@@ -269,6 +270,28 @@ type PostgresStats struct {
 
 	// Database size
 	DBSizeBytes int64 `json:"db_size_bytes"`
+}
+
+// MysqlStats holds MySQL database metrics.
+type MysqlStats struct {
+	ThreadsConnected int `json:"threads_connected"`
+	ThreadsRunning   int `json:"threads_running"`
+	ThreadsCached    int `json:"threads_cached"`
+	MaxConnections   int `json:"max_conns"`
+
+	QueriesPS     float64 `json:"queries_ps"`
+	ComSelectPS   float64 `json:"select_ps"`
+	ComInsertPS   float64 `json:"insert_ps"`
+	ComUpdatePS   float64 `json:"update_ps"`
+	ComDeletePS   float64 `json:"delete_ps"`
+
+	SlowQueriesPS float64 `json:"slow_queries_ps"`
+
+	InnodbBufferPoolHitPct float64 `json:"innodb_buffer_pool_hit_pct"`
+	InnodbBPReadsPS        float64 `json:"innodb_bp_reads_ps"`
+
+	TableLocksWaitedPS float64 `json:"table_locks_waited_ps"`
+	RowLockWaitsPS     float64 `json:"row_lock_waits_ps"`
 }
 
 // PowerSupplyStats holds metrics for a single power supply (battery, mains adapter, UPS).

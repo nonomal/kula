@@ -154,6 +154,7 @@ type ApplicationsConfig struct {
 	Apache2    Apache2Config                  `yaml:"apache2"`
 	Containers ContainersConfig               `yaml:"containers"`
 	Postgres   PostgresConfig                 `yaml:"postgres"`
+	Mysql      MysqlConfig                    `yaml:"mysql"`
 	Custom     map[string][]CustomMetricConfig `yaml:"custom"`
 }
 
@@ -204,6 +205,19 @@ type PostgresConfig struct {
 	Password string `yaml:"password"`
 	DBName   string `yaml:"dbname"`
 	SSLMode  string `yaml:"sslmode"`
+}
+
+// MysqlConfig controls MySQL database monitoring.
+// Connects via database/sql + go-sql-driver/mysql. Supports both TCP and Unix socket.
+// For Unix socket connections, set host to the socket path (e.g. /var/run/mysqld/mysqld.sock)
+// and leave port as 0.
+type MysqlConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	DBName   string `yaml:"dbname"`
 }
 
 func isWritable(dir string) bool {
@@ -293,6 +307,13 @@ func DefaultConfig() *Config {
 				DBName:  "postgres",
 				SSLMode: "disable",
 			},
+			Mysql: MysqlConfig{
+				Enabled: false,
+				Host:    "localhost",
+				Port:    3306,
+				User:    "kula_monitor",
+				DBName:  "mysql",
+			},
 		},
 		TUI: TUIConfig{
 			RefreshRate: time.Second,
@@ -350,6 +371,9 @@ func Load(path string) (*Config, error) {
 	}
 	if pass := os.Getenv("KULA_POSTGRES_PASSWORD"); pass != "" {
 		cfg.Applications.Postgres.Password = pass
+	}
+	if pass := os.Getenv("KULA_MYSQL_PASSWORD"); pass != "" {
+		cfg.Applications.Mysql.Password = pass
 	}
 
 	// Expand ~/ shorthand to the user's home directory

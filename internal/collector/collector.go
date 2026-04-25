@@ -41,6 +41,7 @@ type Collector struct {
 	prevApache     apache2Raw
 	containerColl  *containerCollector
 	pgCollector    *postgresCollector
+	myCollector    *mysqlCollector
 	customColl     *customCollector
 	appCtx         context.Context
 	appCancel      context.CancelFunc
@@ -87,6 +88,19 @@ func New(cfg config.GlobalConfig, collCfg config.CollectionConfig, appCfg config
 			collCfg.Interval,
 		)
 		log.Printf("[postgres] monitoring enabled for database %q", appCfg.Postgres.DBName)
+	}
+
+	if appCfg.Mysql.Enabled {
+		c.myCollector = newMysqlCollector(
+			appCfg.Mysql.Host,
+			appCfg.Mysql.Port,
+			appCfg.Mysql.User,
+			appCfg.Mysql.Password,
+			appCfg.Mysql.DBName,
+			collCfg.DebugLog,
+			collCfg.Interval,
+		)
+		log.Printf("[mysql] monitoring enabled for database %q", appCfg.Mysql.DBName)
 	}
 
 	if appCfg.Nginx.Enabled {
@@ -185,6 +199,9 @@ func (c *Collector) Stop() {
 	if c.pgCollector != nil {
 		c.pgCollector.Close()
 	}
+	if c.myCollector != nil {
+		c.myCollector.Close()
+	}
 	if c.customColl != nil {
 		c.customColl.Close()
 	}
@@ -208,6 +225,10 @@ func (c *Collector) collectApps(elapsed float64) ApplicationsStats {
 
 	if c.appCfg.Postgres.Enabled {
 		apps.Postgres = c.collectPostgres(elapsed)
+	}
+
+	if c.appCfg.Mysql.Enabled {
+		apps.Mysql = c.collectMysql(elapsed)
 	}
 
 	if c.customColl != nil {

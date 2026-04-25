@@ -566,6 +566,10 @@ func (s *Store) aggregateSamples(samples []*collector.Sample, dur time.Duration)
 		pgCopy := *last.Apps.Postgres
 		avg.Apps.Postgres = &pgCopy
 	}
+	if last.Apps.Mysql != nil {
+		myCopy := *last.Apps.Mysql
+		avg.Apps.Mysql = &myCopy
+	}
 	if len(last.Apps.Custom) > 0 {
 		avg.Apps.Custom = make(map[string][]collector.CustomMetricValue, len(last.Apps.Custom))
 		for k, v := range last.Apps.Custom {
@@ -788,6 +792,45 @@ func (s *Store) aggregateSamples(samples []*collector.Sample, dur time.Duration)
 				avg.Apps.Postgres.DeadlocksPS     = roundF(deadlocksPS / fC)
 				avg.Apps.Postgres.BufCheckpointPS = roundF(bufCkptPS / fC)
 				avg.Apps.Postgres.BufBackendPS    = roundF(bufBackPS / fC)
+			}
+		}
+
+		// MySQL rates
+		if avg.Apps.Mysql != nil {
+			var (
+				queriesPS, selectPS, insertPS, updatePS, deletePS     float64
+				slowPS, bpReadsPS, bpHitPct                           float64
+				tableLkWaitedPS, rowLkWaitsPS                         float64
+			)
+			count := 0
+			for _, s := range samples {
+				if s.Apps.Mysql != nil {
+					my := s.Apps.Mysql
+					queriesPS      += my.QueriesPS
+					selectPS       += my.ComSelectPS
+					insertPS       += my.ComInsertPS
+					updatePS       += my.ComUpdatePS
+					deletePS       += my.ComDeletePS
+					slowPS         += my.SlowQueriesPS
+					bpReadsPS      += my.InnodbBPReadsPS
+					bpHitPct       += my.InnodbBufferPoolHitPct
+					tableLkWaitedPS += my.TableLocksWaitedPS
+					rowLkWaitsPS   += my.RowLockWaitsPS
+					count++
+				}
+			}
+			if count > 0 {
+				fC := float64(count)
+				avg.Apps.Mysql.QueriesPS             = roundF(queriesPS / fC)
+				avg.Apps.Mysql.ComSelectPS           = roundF(selectPS / fC)
+				avg.Apps.Mysql.ComInsertPS           = roundF(insertPS / fC)
+				avg.Apps.Mysql.ComUpdatePS           = roundF(updatePS / fC)
+				avg.Apps.Mysql.ComDeletePS           = roundF(deletePS / fC)
+				avg.Apps.Mysql.SlowQueriesPS         = roundF(slowPS / fC)
+				avg.Apps.Mysql.InnodbBPReadsPS       = roundF(bpReadsPS / fC)
+				avg.Apps.Mysql.InnodbBufferPoolHitPct = roundF(bpHitPct / fC)
+				avg.Apps.Mysql.TableLocksWaitedPS    = roundF(tableLkWaitedPS / fC)
+				avg.Apps.Mysql.RowLockWaitsPS        = roundF(rowLkWaitsPS / fC)
 			}
 		}
 

@@ -197,9 +197,9 @@ func TestDecodeOldAggregatedRecord(t *testing.T) {
 		t.Fatalf("appendVariable: %v", err)
 	}
 
-	// An empty-apps variable section has exactly 7 trailing bytes:
-	// 1 (nginx=0) + 1 (apache2=0) + 2 (containers=0) + 1 (postgres=0) + 2 (custom=0).
-	const emptyAppsSize = 7
+	// An empty-apps variable section has exactly 8 trailing bytes:
+	// 1 (nginx=0) + 1 (apache2=0) + 2 (containers=0) + 1 (postgres=0) + 1 (mysql=0) + 2 (custom=0).
+	const emptyAppsSize = 8
 	oldVarBuf := varBuf[:len(varBuf)-emptyAppsSize]
 
 	// Append 218 bytes of "next fixed block" — simulates a min/max block

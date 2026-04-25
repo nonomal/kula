@@ -539,6 +539,32 @@ func appendVariable(buf []byte, s *collector.Sample) ([]byte, error) {
 		buf = append(buf, 0)
 	}
 
+	// MySQL — presence byte doubles as version tag:
+	//   0 = not present
+	//   1 = v1 format (64-byte block: 4×int32 + 11×float32)
+	if s.Apps.Mysql != nil {
+		buf = append(buf, 1)
+		my := s.Apps.Mysql
+		var mb [64]byte
+		binary.LittleEndian.PutUint32(mb[0:], uint32(int32(my.ThreadsConnected)))
+		binary.LittleEndian.PutUint32(mb[4:], uint32(int32(my.ThreadsRunning)))
+		binary.LittleEndian.PutUint32(mb[8:], uint32(int32(my.ThreadsCached)))
+		binary.LittleEndian.PutUint32(mb[12:], uint32(int32(my.MaxConnections)))
+		putF32(mb[16:], my.QueriesPS)
+		putF32(mb[20:], my.ComSelectPS)
+		putF32(mb[24:], my.ComInsertPS)
+		putF32(mb[28:], my.ComUpdatePS)
+		putF32(mb[32:], my.ComDeletePS)
+		putF32(mb[36:], my.SlowQueriesPS)
+		putF32(mb[40:], my.InnodbBufferPoolHitPct)
+		putF32(mb[44:], my.InnodbBPReadsPS)
+		putF32(mb[48:], my.TableLocksWaitedPS)
+		putF32(mb[52:], my.RowLockWaitsPS)
+		buf = append(buf, mb[:]...)
+	} else {
+		buf = append(buf, 0)
+	}
+
 	// Custom metrics (uint16 group count, sorted keys for deterministic encoding)
 	customKeys := make([]string, 0, len(s.Apps.Custom))
 	for k := range s.Apps.Custom {
@@ -1046,6 +1072,35 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps bool) (int, error)
 		pg.AutovacuumCount = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
 		pg.DBSizeBytes    = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
 		s.Apps.Postgres = pg
+	}
+
+	// MySQL — presence byte doubles as version tag:
+	//   0 = not present
+	//   1 = v1 format (64-byte block: 4×int32 + 11×float32)
+	if err := need(1, "mysql presence"); err != nil {
+		return off, err
+	}
+	myVersion := data[off]; off++
+	if myVersion >= 1 {
+		if err := need(64, "mysql v1 fields"); err != nil {
+			return off, err
+		}
+		my := &collector.MysqlStats{}
+		my.ThreadsConnected = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		my.ThreadsRunning   = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		my.ThreadsCached    = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		my.MaxConnections   = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		my.QueriesPS       = getF32(data[off:]); off += 4
+		my.ComSelectPS     = getF32(data[off:]); off += 4
+		my.ComInsertPS     = getF32(data[off:]); off += 4
+		my.ComUpdatePS     = getF32(data[off:]); off += 4
+		my.ComDeletePS     = getF32(data[off:]); off += 4
+		my.SlowQueriesPS   = getF32(data[off:]); off += 4
+		my.InnodbBufferPoolHitPct = getF32(data[off:]); off += 4
+		my.InnodbBPReadsPS = getF32(data[off:]); off += 4
+		my.TableLocksWaitedPS = getF32(data[off:]); off += 4
+		my.RowLockWaitsPS  = getF32(data[off:]); off += 4
+		s.Apps.Mysql = my
 	}
 
 	// Custom metrics
