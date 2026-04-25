@@ -83,7 +83,7 @@ Lightweight, self-contained Linux® server monitoring tool
 | File | Purpose |
 |---|---|
 | `collector.go` (~213 lines) | Orchestrator — calls all sub-collectors, coordinates app monitoring |
-| `types.go` (~271 lines) | All data types: `Sample`, `CPUStats`, `MemoryStats`, `NetworkStats`, `DiskStats`, `GPUStats`, `ContainerStats`, `PostgresStats`, `PowerSupplyStats`, `NginxStats` |
+| `types.go` (~271 lines) | All data types: `Sample`, `CPUStats`, `MemoryStats`, `NetworkStats`, `DiskStats`, `GPUStats`, `ContainerStats`, `PostgresStats`, `Apache2Stats`, `PowerSupplyStats`, `NginxStats` |
 | `cpu.go` (~433 lines) | CPU usage from `/proc/stat`, load averages, CPU temperature via hwmon/thermal_zone sysfs discovery |
 | `disk.go` (~503 lines) | Disk I/O from `/proc/diskstats` (skips virtual/LVM/loop), filesystem usage via `statfs`, disk temperature via hwmon |
 | `network.go` (~345 lines) | Network throughput from `/proc/net/dev`, TCP stats from `/proc/net/snmp` and `/proc/net/netstat` (including retrans), socket stats from `/proc/net/sockstat` |
@@ -96,6 +96,7 @@ Lightweight, self-contained Linux® server monitoring tool
 | `psu.go` (~102 lines) | Battery/power supply status from `/sys/class/power_supply` |
 | `containers.go` (~547 lines) | Docker/Podman container monitoring via Unix socket API + cgroups v2 fallback |
 | `nginx.go` (~113 lines) | Nginx stub_status monitoring (active connections, accepts/requests per second) |
+| `apache2.go` (~172 lines) | Apache2 mod_status monitoring (workers, scoreboard states, per-second rates) |
 | `postgres.go` (~274 lines) | PostgreSQL monitoring via `lib/pq` (connections, transactions, tuples, I/O, locking, table health, DB size) |
 | `custom.go` (~194 lines) | Custom metrics via Unix domain socket (`kula.sock`) — clients send JSON |
 | `ai.go` (~105 lines) | `FormatForAI()` — formats current sample as text for LLM consumption |
@@ -134,6 +135,298 @@ Lightweight, self-contained Linux® server monitoring tool
 ### Internationalization — `internal/i18n/i18n.go` (105 lines)
 - Embedded 26 locale JSON files (`ar, de, en, es, fr, hi, ja, ko, pl, pt, zh, ...`)
 - Translation lookup with English fallback
+
+---
+
+## 3a. STORAGE CODEC — METRICS ADDITION GUIDE
+
+### Codec Architecture
+
+The binary codec (`internal/storage/codec.go`) uses a **positional** layout — no keys, no TLV,
+no length prefixes. Metrics are identified solely by their byte offset within a fixed sequence.
+
+Each record has this structure:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  Preamble (18 bytes)                                     │
+│  [0:8]   Timestamp (int64, nanoseconds)                  │
+│  [8:16]  Duration  (int64, nanoseconds)                  │
+│  [16:18] Flags     (uint16 bitmask)                      │
+│          flagHasMin     = 1 << 0                         │
+│          flagHasMax     = 1 << 1                         │
+│          flagHasData    = 1 << 2                         │
+│          flagHasApps    = 1 << 3   (gate: app section)   │
+│          flagHasApache2 = 1 << 8   (gate: Apache2 block) │
+│          ... new flags: 1 << 9, 1 << 10, ...             │
+├──────────────────────────────────────────────────────────┤
+│  Fixed block (218 bytes) — CPU, memory, swap, TCP,       │
+│  process, self metrics. Always the same size.            │
+├──────────────────────────────────────────────────────────┤
+│  Variable section — sequential:                          │
+│    1. Network interfaces (count + per-iface data)        │
+│    2. CPU temp sensors (count + per-sensor data)         │
+│    3. Disk devices (count + per-device data)             │
+│    4. Filesystems (count + per-fs data)                  │
+│    5. System strings (hostname, clocksource)             │
+│    6. GPU entries (count + per-GPU data)                 │
+│                                                          │
+│    7. Application metrics — ordered, fixed sequence:     │
+│       a. Nginx       (1 byte presence + 52 bytes data)   │
+│       b. Containers  (2 bytes count + variable per-ct)   │
+│       c. PostgreSQL  (1 byte version + 56/104 bytes)     │
+│       d. MySQL       (1 byte version + 64 bytes)         │
+│       e. Apache2     (1 byte version + 72/100 bytes)     │
+│       f. Custom      (2 bytes group count + variable)    │
+│                                                          │
+│       ← NEW METRIC TYPES MUST BE INSERTED HERE,          │
+│         BEFORE "Custom"                                   │
+└──────────────────────────────────────────────────────────┘
+```
+
+### The Rule
+
+**New fixed-size application metric types MUST be appended after all existing fixed
+sections and before the trailing Custom section.** Never insert a new section between
+existing ones.
+
+Each new type is gated by a dedicated preamble flag bit. The decoder checks each flag:
+if absent (old record), that section's bytes are skipped entirely and subsequent
+sections remain correctly aligned.
+
+Incrementing a single metric type's block size (adding fields) uses a version-tagged
+presence byte. e.g. `0` = absent, `1` = v1 (old size), `2` = v2 (new size). The
+decoder reads the version and dispatches to the correct block layout. This does NOT
+break old records because the section's position in the sequence doesn't change.
+
+---
+
+### How a New Flag Protects Old Records
+
+Consider a record written before Apache2 existed:
+
+```
+Preamble flags: hasApps=1, hasApache2=0   ← Apache2 flag absent
+
+decodeVariable with (hasApps=true, hasApache2=false):
+  nginx:       read 1 byte  → done
+  containers:  read 2 bytes → done
+  postgres:    read 1 byte  → done
+  mysql:       read 1 byte  → done
+  if hasApache2 → FALSE, skip this entire section  ← CORRECT
+  custom:      read 2 bytes + groups  → done
+```
+
+The decoder knows exactly which bytes belong to which section because the order is
+deterministic. A missing flag means "pretend this section doesn't exist and move on."
+
+---
+
+### Step-by-Step Checklist
+
+Use this checklist when adding a new application metric type (e.g. Redis).
+
+The example below assumes a new type called `Foo` with a 48-byte block.
+
+#### 1. Config (`internal/config/config.go`)
+
+Add a config struct and wire it into `ApplicationsConfig`:
+
+```go
+type FooConfig struct {
+    Enabled   bool   `yaml:"enabled"`
+    StatusURL string `yaml:"status_url"`
+}
+
+type ApplicationsConfig struct {
+    // ...existing fields...
+    Foo FooConfig `yaml:"foo"`
+}
+```
+
+Set defaults in `DefaultConfig()`.
+
+#### 2. Types (`internal/collector/types.go`)
+
+Add the stats struct with JSON tags:
+
+```go
+type FooStats struct {
+    MetricA int     `json:"metric_a"`
+    MetricB float64 `json:"metric_b"`
+    // ...
+}
+```
+
+Add `Foo *FooStats` to `ApplicationsStats`.
+
+#### 3. Collector (`internal/collector/foo.go`)
+
+Implement `collectFoo(elapsed float64) *FooStats`. Follow the nginx collector pattern:
+lazy-allocated HTTP client, error handling returning nil, parse the upstream format.
+
+If the metric source has cumulative counters that can reset on restart, guard the delta
+computation against counter rollback (see `nginx.go:91` and `apache2.go:129`).
+
+#### 4. Wire into orchestrator (`internal/collector/collector.go`)
+
+- Add `fooClient *http.Client` and `prevFoo fooRaw` to the `Collector` struct.
+- Add init log: `if appCfg.Foo.Enabled { log.Printf("[foo] monitoring enabled at %s", ...) }`
+- Add dispatch in `collectApps()`: `if c.appCfg.Foo.Enabled { apps.Foo = c.collectFoo(elapsed) }`
+
+#### 5. Sandbox (`internal/sandbox/sandbox.go`)
+
+If the collector makes outbound HTTP connections, add a `ConnectTCP` rule for the port:
+
+```go
+if appCfg.Foo.Enabled && appCfg.Foo.StatusURL != "" {
+    if u, err := url.Parse(appCfg.Foo.StatusURL); err == nil {
+        port := 80
+        if u.Port() != "" {
+            if p, err := strconv.Atoi(u.Port()); err == nil && p > 0 && p <= 65535 {
+                port = p
+            }
+        } else if u.Scheme == "https" {
+            port = 443
+        }
+        netRules = append(netRules, landlock.ConnectTCP(uint16(port)))
+        appInfo = append(appInfo, fmt.Sprintf("foo:connect-tcp/%d", port))
+    }
+}
+```
+
+#### 6. Preamble flag (`internal/storage/codec.go`)
+
+Add a new flag constant **before** the fixed block size constant:
+
+```go
+const (
+    flagHasMin     uint16 = 1 << 0
+    flagHasMax     uint16 = 1 << 1
+    flagHasData    uint16 = 1 << 2
+    flagHasApps    uint16 = 1 << 3
+    flagHasApache2 uint16 = 1 << 8
+    flagHasFoo     uint16 = 1 << 9   // <-- NEW
+)
+```
+
+Always set it in `appendPreamble()` — new records always carry the flag:
+
+```go
+flags |= flagHasFoo
+```
+
+#### 7. Encode block (`internal/storage/codec.go` — `appendVariable`)
+
+**Append** the new section after MySQL and before Custom. Place it at the end of the
+fixed app sections:
+
+```
+nginx → containers → postgres → mysql → apache2 → foo → custom
+                                                      ^^^^^
+```
+
+```go
+// Foo (1-byte presence + 48-byte fixed block when present)
+if s.Apps.Foo != nil {
+    buf = append(buf, 1)
+    f := s.Apps.Foo
+    var fb [48]byte
+    // ...binary.LittleEndian.PutUint32(...)...
+    buf = append(buf, fb[:]...)
+} else {
+    buf = append(buf, 0)
+}
+```
+
+When the block size grows in the future, bump the presence tag to `2` and add
+version-tagged decoding.
+
+#### 8. Decode block (`internal/storage/codec.go` — `decodeVariable`)
+
+Gate the new section behind the flag extracted from the preamble. **Append** after
+Apache2 and before Custom:
+
+```go
+// Foo — gated by flagHasFoo so old records skip this byte.
+if hasFoo {
+    fooPresent := data[off]; off++
+    if fooPresent != 0 {
+        if err := need(48, "foo fields"); err != nil {
+            return off, err
+        }
+        f := &collector.FooStats{}
+        f.MetricA = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+        // ...
+        s.Apps.Foo = f
+    }
+}
+```
+
+Extract the flag in `decodeSample()` and thread it through `decodeVariable()`:
+
+```go
+hasFoo := flags&flagHasFoo != 0
+// ...
+vn, err := decodeVariable(data[off:], s, hasApps, hasApache2, hasFoo)
+```
+
+Update the `decodeVariable` signature to accept the new `hasFoo bool` parameter.
+Update all call sites (tests included).
+
+#### 9. Store aggregation (`internal/storage/store.go`)
+
+- **Deep copy** on init: add `if last.Apps.Foo != nil { ... }` alongside nginx/apache2.
+- **Rate averaging**: average per-second rate fields across aggregated samples (same
+  pattern as nginx at `store.go:680`).
+
+#### 10. Python decoder (`addons/inspect_tier.py`)
+
+- Add the flag constant: `FLAG_HAS_FOO = 1 << 9`
+- Extract `has_foo` from flags and pass to `_decode_variable()`.
+- Add the Foo decoding block at the same position (after Apache2, before Custom).
+- Gate with `if has_foo:`.
+
+#### 11. Frontend charts (`internal/web/static/js/app/charts-data.js`)
+
+- Add an `APP_ORDER_FOO` constant with a unique value (increment by 10).
+- Create charts dynamically on first data: `if (s.apps?.foo) { ... }`.
+- Register chart card IDs in `charts-init.js` `destroyAppCharts()` for cleanup.
+
+#### 12. Config documentation (`config.example.yaml`)
+
+Add the config section with comments explaining prerequisites.
+
+#### 13. Tests (`internal/collector/app_test.go`)
+
+- Test valid parse output.
+- Test malformed output returns nil.
+- Test counter reset doesn't produce insane rates (if cumulative counters apply).
+
+#### 14. Verify
+
+```bash
+./addons/check.sh
+```
+
+All four checks must pass: govulncheck, go vet, go test -race, golangci-lint.
+
+---
+
+### Quick Reference: Available Flag Bits
+
+| Bit | Flag | Purpose |
+|-----|------|---------|
+| 0   | `flagHasMin`     | Min block present |
+| 1   | `flagHasMax`     | Max block present |
+| 2   | `flagHasData`    | Data block present |
+| 3   | `flagHasApps`    | Application metrics section present |
+| 8   | `flagHasApache2` | Apache2 block present |
+| 9   | —                | Next available |
+| 10  | —                | Available |
+| ... | —                | Available up to bit 15 |
+
+Use bit 9 for the next metric type. Bits 4–7 and 9–15 are free. Do not reuse bits.
 
 ---
 
