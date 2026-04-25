@@ -22,6 +22,7 @@ FLAG_HAS_MAX = 1 << 1
 FLAG_HAS_DATA = 1 << 2
 FLAG_HAS_APPS = 1 << 3
 FLAG_HAS_APACHE2 = 1 << 8
+FLAG_HAS_MYSQL = 1 << 9
 
 FIXED_BLOCK_SIZE = 218  # must match fixedBlockSize in codec.go
 
@@ -267,7 +268,7 @@ def _decode_fixed(data: bytes, off: int) -> Tuple[Dict[str, Any], int]:
 
 def _decode_variable(
     data: bytes, off: int, s: Dict[str, Any], has_apps: bool = False,
-    has_apache2: bool = False,
+    has_apache2: bool = False, has_mysql: bool = False,
 ) -> Tuple[Dict[str, Any], int]:
     # pylint: disable=too-many-locals, too-many-statements
     # 1. Network interfaces
@@ -550,41 +551,43 @@ def _decode_variable(
             "db_size_bytes": db_size_bytes,
         }
 
-    # 7d. MySQL — presence byte doubles as version tag:
+    # 7d. MySQL — gated by has_mysql flag so old records skip this section.
+    # Presence byte doubles as version tag:
     #   0 = not present
     #   1 = v1 format (64-byte block: 4×i32 + 11×f32)
-    my_version, off = _get_u8(data, off)
-    if my_version >= 1:
-        threads_connected, off = _get_i32(data, off)
-        threads_running, off = _get_i32(data, off)
-        threads_cached, off = _get_i32(data, off)
-        max_connections, off = _get_i32(data, off)
-        queries_ps, off = _get_f32(data, off)
-        com_select_ps, off = _get_f32(data, off)
-        com_insert_ps, off = _get_f32(data, off)
-        com_update_ps, off = _get_f32(data, off)
-        com_delete_ps, off = _get_f32(data, off)
-        slow_queries_ps, off = _get_f32(data, off)
-        innodb_bp_hit_pct, off = _get_f32(data, off)
-        innodb_bp_reads_ps, off = _get_f32(data, off)
-        table_locks_waited_ps, off = _get_f32(data, off)
-        row_lock_waits_ps, off = _get_f32(data, off)
-        apps["mysql"] = {
-            "threads_connected": threads_connected,
-            "threads_running": threads_running,
-            "threads_cached": threads_cached,
-            "max_connections": max_connections,
-            "queries_ps": queries_ps,
-            "com_select_ps": com_select_ps,
-            "com_insert_ps": com_insert_ps,
-            "com_update_ps": com_update_ps,
-            "com_delete_ps": com_delete_ps,
-            "slow_queries_ps": slow_queries_ps,
-            "innodb_buffer_pool_hit_pct": innodb_bp_hit_pct,
-            "innodb_bp_reads_ps": innodb_bp_reads_ps,
-            "table_locks_waited_ps": table_locks_waited_ps,
-            "row_lock_waits_ps": row_lock_waits_ps,
-        }
+    if has_mysql:
+        my_version, off = _get_u8(data, off)
+        if my_version >= 1:
+            threads_connected, off = _get_i32(data, off)
+            threads_running, off = _get_i32(data, off)
+            threads_cached, off = _get_i32(data, off)
+            max_connections, off = _get_i32(data, off)
+            queries_ps, off = _get_f32(data, off)
+            com_select_ps, off = _get_f32(data, off)
+            com_insert_ps, off = _get_f32(data, off)
+            com_update_ps, off = _get_f32(data, off)
+            com_delete_ps, off = _get_f32(data, off)
+            slow_queries_ps, off = _get_f32(data, off)
+            innodb_bp_hit_pct, off = _get_f32(data, off)
+            innodb_bp_reads_ps, off = _get_f32(data, off)
+            table_locks_waited_ps, off = _get_f32(data, off)
+            row_lock_waits_ps, off = _get_f32(data, off)
+            apps["mysql"] = {
+                "threads_connected": threads_connected,
+                "threads_running": threads_running,
+                "threads_cached": threads_cached,
+                "max_connections": max_connections,
+                "queries_ps": queries_ps,
+                "com_select_ps": com_select_ps,
+                "com_insert_ps": com_insert_ps,
+                "com_update_ps": com_update_ps,
+                "com_delete_ps": com_delete_ps,
+                "slow_queries_ps": slow_queries_ps,
+                "innodb_buffer_pool_hit_pct": innodb_bp_hit_pct,
+                "innodb_bp_reads_ps": innodb_bp_reads_ps,
+                "table_locks_waited_ps": table_locks_waited_ps,
+                "row_lock_waits_ps": row_lock_waits_ps,
+            }
 
     # 7e. Apache2 — gated by has_apache2 flag so old records skip this section.
     # Presence byte doubles as version tag:
@@ -728,11 +731,13 @@ def decode_v2_record(payload: bytes) -> Optional[Dict[str, Any]]:
             "has_max": bool(flags & FLAG_HAS_MAX),
             "has_apps": bool(flags & FLAG_HAS_APPS),
             "has_apache2": bool(flags & FLAG_HAS_APACHE2),
+            "has_mysql": bool(flags & FLAG_HAS_MYSQL),
         },
     }
 
     has_apps = bool(flags & FLAG_HAS_APPS)
     has_apache2 = bool(flags & FLAG_HAS_APACHE2)
+    has_mysql = bool(flags & FLAG_HAS_MYSQL)
     for label, flag in [
         ("data", FLAG_HAS_DATA),
         ("min", FLAG_HAS_MIN),
@@ -740,7 +745,7 @@ def decode_v2_record(payload: bytes) -> Optional[Dict[str, Any]]:
     ]:
         if flags & flag:
             block, off = _decode_fixed(payload, off)
-            block, off = _decode_variable(payload, off, block, has_apps, has_apache2)
+            block, off = _decode_variable(payload, off, block, has_apps, has_apache2, has_mysql)
             result[label] = block
 
     return result

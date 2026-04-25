@@ -56,7 +56,8 @@ const (
 	flagHasMax     uint16 = 1 << 1
 	flagHasData    uint16 = 1 << 2
 	flagHasApps    uint16 = 1 << 3 // variable block includes application metrics section
-	flagHasApache2 uint16 = 1 << 8 // variable block includes Apache2 metrics after nginx
+	flagHasApache2 uint16 = 1 << 8 // variable block includes Apache2 metrics
+	flagHasMysql   uint16 = 1 << 9 // variable block includes MySQL metrics
 )
 
 // fixedBlockSize is the size in bytes of the encoded fixed scalar block.
@@ -211,7 +212,8 @@ func appendPreamble(buf []byte, a *AggregatedSample) []byte {
 		flags |= flagHasMax
 	}
 	flags |= flagHasApps    // always set: variable blocks include app metrics section
-	flags |= flagHasApache2 // always set: Apache2 metrics byte follows nginx
+	flags |= flagHasApache2 // always set: Apache2 metrics byte follows MySQL
+	flags |= flagHasMysql   // always set: MySQL metrics byte follows Postgres
 	binary.LittleEndian.PutUint16(b[16:], flags)
 	return append(buf, b[:]...)
 }
@@ -620,6 +622,7 @@ func decodeSample(data []byte) (*AggregatedSample, error) {
 	flags := binary.LittleEndian.Uint16(data[16:])
 	hasApps := flags&flagHasApps != 0
 	hasApache2 := flags&flagHasApache2 != 0
+	hasMysql := flags&flagHasMysql != 0
 	off := 18
 
 	if flags&flagHasData != 0 {
@@ -628,7 +631,7 @@ func decodeSample(data []byte) (*AggregatedSample, error) {
 			return nil, fmt.Errorf("decode data fixed: %w", err)
 		}
 		off += n
-		vn, err := decodeVariable(data[off:], s, hasApps, hasApache2)
+		vn, err := decodeVariable(data[off:], s, hasApps, hasApache2, hasMysql)
 		if err != nil {
 			return nil, fmt.Errorf("decode data variable: %w", err)
 		}
@@ -643,7 +646,7 @@ func decodeSample(data []byte) (*AggregatedSample, error) {
 			return nil, fmt.Errorf("decode min fixed: %w", err)
 		}
 		off += n
-		vn, err := decodeVariable(data[off:], s, hasApps, hasApache2)
+		vn, err := decodeVariable(data[off:], s, hasApps, hasApache2, hasMysql)
 		if err != nil {
 			return nil, fmt.Errorf("decode min variable: %w", err)
 		}
@@ -658,7 +661,7 @@ func decodeSample(data []byte) (*AggregatedSample, error) {
 			return nil, fmt.Errorf("decode max fixed: %w", err)
 		}
 		off += n
-		vn, err := decodeVariable(data[off:], s, hasApps, hasApache2)
+		vn, err := decodeVariable(data[off:], s, hasApps, hasApache2, hasMysql)
 		if err != nil {
 			return nil, fmt.Errorf("decode max variable: %w", err)
 		}
@@ -740,11 +743,12 @@ func decodeFixed(data []byte) (*collector.Sample, int, error) {
 // (flagHasApps was set in the preamble). Old records without the flag must not
 // attempt to decode app metrics because the remaining bytes belong to the next
 // fixed+variable block (min/max) in multi-block aggregated records.
-// hasApache2 indicates the nginx section is followed by the Apache2 presence
-// byte (flagHasApache2). Records written before v0.16.0 omit this byte and
-// go straight from nginx to containers.
+// hasApache2 gates the Apache2 presence byte (flagHasApache2).
+// hasMysql gates the MySQL presence byte (flagHasMysql).
+// Records written before each type existed omit the flag, so the decoder
+// skips that section's bytes and subsequent offsets stay correct.
 // Returns the number of bytes consumed and any error.
-func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2 bool) (int, error) {
+func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMysql bool) (int, error) {
 	off := 0
 
 	need := func(n int, ctx string) error {
@@ -1065,33 +1069,34 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2 bool) 
 		s.Apps.Postgres = pg
 	}
 
-	// MySQL — presence byte doubles as version tag:
-	//   0 = not present
-	//   1 = v1 format (64-byte block: 4×int32 + 11×float32)
-	if err := need(1, "mysql presence"); err != nil {
-		return off, err
-	}
-	myVersion := data[off]; off++
-	if myVersion >= 1 {
-		if err := need(64, "mysql v1 fields"); err != nil {
+	// MySQL — gated by flagHasMysql so old records (pre-0.17.0) that
+	// lack this flag skip the byte and continue to Apache2 or Custom.
+	if hasMysql {
+		if err := need(1, "mysql presence"); err != nil {
 			return off, err
 		}
-		my := &collector.MysqlStats{}
-		my.ThreadsConnected = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		my.ThreadsRunning   = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		my.ThreadsCached    = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		my.MaxConnections   = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		my.QueriesPS       = getF32(data[off:]); off += 4
-		my.ComSelectPS     = getF32(data[off:]); off += 4
-		my.ComInsertPS     = getF32(data[off:]); off += 4
-		my.ComUpdatePS     = getF32(data[off:]); off += 4
-		my.ComDeletePS     = getF32(data[off:]); off += 4
-		my.SlowQueriesPS   = getF32(data[off:]); off += 4
-		my.InnodbBufferPoolHitPct = getF32(data[off:]); off += 4
-		my.InnodbBPReadsPS = getF32(data[off:]); off += 4
-		my.TableLocksWaitedPS = getF32(data[off:]); off += 4
-		my.RowLockWaitsPS  = getF32(data[off:]); off += 4
-		s.Apps.Mysql = my
+		myVersion := data[off]; off++
+		if myVersion >= 1 {
+			if err := need(64, "mysql v1 fields"); err != nil {
+				return off, err
+			}
+			my := &collector.MysqlStats{}
+			my.ThreadsConnected = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+			my.ThreadsRunning   = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+			my.ThreadsCached    = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+			my.MaxConnections   = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+			my.QueriesPS       = getF32(data[off:]); off += 4
+			my.ComSelectPS     = getF32(data[off:]); off += 4
+			my.ComInsertPS     = getF32(data[off:]); off += 4
+			my.ComUpdatePS     = getF32(data[off:]); off += 4
+			my.ComDeletePS     = getF32(data[off:]); off += 4
+			my.SlowQueriesPS   = getF32(data[off:]); off += 4
+			my.InnodbBufferPoolHitPct = getF32(data[off:]); off += 4
+			my.InnodbBPReadsPS = getF32(data[off:]); off += 4
+			my.TableLocksWaitedPS = getF32(data[off:]); off += 4
+			my.RowLockWaitsPS  = getF32(data[off:]); off += 4
+			s.Apps.Mysql = my
+		}
 	}
 
 	// Apache2 — gated by flagHasApache2 so old records (pre-0.16.0) that

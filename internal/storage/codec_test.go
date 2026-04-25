@@ -210,7 +210,7 @@ func TestDecodeOldAggregatedRecord(t *testing.T) {
 	// With hasApps=false, decodeVariable must consume only sections 1-6
 	// and NOT touch the trailing 218 bytes.
 	target := &collector.Sample{}
-	n, err := decodeVariable(padded, target, false, false)
+	n, err := decodeVariable(padded, target, false, false, false)
 	if err != nil {
 		t.Fatalf("decodeVariable(hasApps=false) error: %v", err)
 	}
@@ -332,7 +332,7 @@ func TestDecodePostgresV1Block(t *testing.T) {
 
 	// Decode the v1-format variable section
 	target := &collector.Sample{}
-	_, err = decodeVariable(v1Var, target, true, true)
+	_, err = decodeVariable(v1Var, target, true, true, false)
 	if err != nil {
 		t.Fatalf("decodeVariable(v1 postgres) error: %v", err)
 	}

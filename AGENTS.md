@@ -422,11 +422,12 @@ All four checks must pass: govulncheck, go vet, go test -race, golangci-lint.
 | 2   | `flagHasData`    | Data block present |
 | 3   | `flagHasApps`    | Application metrics section present |
 | 8   | `flagHasApache2` | Apache2 block present |
-| 9   | —                | Next available |
-| 10  | —                | Available |
+| 9   | `flagHasMysql`   | MySQL block present |
+| 10  | —                | Next available |
+| 11  | —                | Available |
 | ... | —                | Available up to bit 15 |
 
-Use bit 9 for the next metric type. Bits 4–7 and 9–15 are free. Do not reuse bits.
+Use bit 10 for the next metric type. Bits 4–7 and 10–15 are free. Do not reuse bits.
 
 ---
 
