@@ -38,6 +38,7 @@ type postgresCollector struct {
 	debug        bool
 	wasConnected bool          // tracks connection state for log transitions
 	timeout      time.Duration // per-query/connect timeout, derived from collection interval
+	serverVerNum int           // server_version_num (e.g. 170000 = PG17); 0 until detected
 }
 
 // newPostgresCollector builds the DSN and returns a collector (without connecting yet).
@@ -83,6 +84,7 @@ func (pc *postgresCollector) connect() error {
 		_ = pc.db.Close()
 		pc.db = nil
 		pc.prev = pgRaw{}
+		pc.serverVerNum = 0
 		if pc.wasConnected {
 			log.Printf("[postgres] connection to %q lost, will retry", pc.dbName)
 			pc.wasConnected = false
@@ -104,6 +106,14 @@ func (pc *postgresCollector) connect() error {
 		return fmt.Errorf("postgres ping: %w", err)
 	}
 	pc.db = db
+
+	var verStr string
+	if err := db.QueryRowContext(ctx, "SHOW server_version_num").Scan(&verStr); err == nil {
+		if v, err := strconv.Atoi(verStr); err == nil {
+			pc.serverVerNum = v
+		}
+	}
+
 	if !pc.wasConnected {
 		log.Printf("[postgres] connected to database %q", pc.dbName)
 		pc.wasConnected = true
@@ -196,15 +206,31 @@ func (c *Collector) collectPostgres(elapsed float64) *PostgresStats {
 	c.debugf("[postgres] raw: commit=%d, rollback=%d, hit=%d, read=%d, deadlocks=%d",
 		cur.xactCommit, cur.xactRollback, cur.blksHit, cur.blksRead, cur.deadlocks)
 
-	// Background writer cumulative counters from pg_stat_bgwriter
-	row = c.pgCollector.db.QueryRowContext(ctx, `
-		SELECT
-			COALESCE(buffers_checkpoint, 0),
-			COALESCE(buffers_backend,    0)
-		FROM pg_stat_bgwriter
-	`)
+	// Background writer cumulative counters.
+	// PG17 split pg_stat_bgwriter: checkpoint stats moved to
+	// pg_stat_checkpointer, and buffers_backend was removed entirely —
+	// the closest equivalent is now SUM(writes) over pg_stat_io for
+	// non-bgwriter/non-checkpointer backends.
+	var bgQuery string
+	if c.pgCollector.serverVerNum >= 170000 {
+		bgQuery = `
+			SELECT
+				COALESCE((SELECT buffers_written FROM pg_stat_checkpointer), 0),
+				COALESCE((SELECT SUM(writes) FROM pg_stat_io
+				           WHERE object = 'relation'
+				             AND backend_type NOT IN ('background writer', 'checkpointer')), 0)
+		`
+	} else {
+		bgQuery = `
+			SELECT
+				COALESCE(buffers_checkpoint, 0),
+				COALESCE(buffers_backend,    0)
+			FROM pg_stat_bgwriter
+		`
+	}
+	row = c.pgCollector.db.QueryRowContext(ctx, bgQuery)
 	if err := row.Scan(&cur.bufCheckpoint, &cur.bufBackend); err != nil {
-		c.debugf("[postgres] pg_stat_bgwriter query error: %v", err)
+		c.debugf("[postgres] bgwriter query error: %v", err)
 		// non-fatal: continue without bgwriter data
 	}
 
