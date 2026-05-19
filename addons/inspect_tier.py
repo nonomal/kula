@@ -846,9 +846,13 @@ def inspect_tier(filepath: str) -> None:
                 )
                 sys.exit(1)
 
-            wrapped = (
-                write_off > 0 and count > 0 and file_size >= HEADER_SIZE + max_data
-            )
+            # Wrapped when the file's persistent extent reaches past the
+            # current write offset — bytes there survive from a previous
+            # ring pass. Comparing against max_data misses this: the file's
+            # max extent after a wrap is HEADER_SIZE + write_off_at_wrap
+            # (+ a 4-byte sentinel), strictly less than HEADER_SIZE +
+            # max_data by up to one record's worth of bytes.
+            wrapped = count > 0 and file_size > HEADER_SIZE + write_off
             codec_label = "v2 binary" if codec_ver >= CODEC_V2 else "v1 JSON (legacy)"
 
             print(f"File:          {filepath}")

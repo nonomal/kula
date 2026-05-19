@@ -135,10 +135,15 @@ func (t *Tier) readHeader() error {
 		t.newestTS = time.Unix(0, newestNano)
 	}
 
-	if t.writeOff > 0 && t.count > 0 {
-		// Check if we've wrapped
+	if t.count > 0 {
+		// If the file's persistent extent reaches past the current write
+		// offset, bytes from a previous ring pass survive there — i.e. we
+		// have wrapped. Comparing against maxData would miss this: the
+		// file's max size after a wrap is headerSize + writeOff_at_wrap (+
+		// a 4-byte sentinel), which is strictly less than headerSize +
+		// maxData by up to one record's worth of bytes.
 		fileInfo, _ := t.file.Stat()
-		if fileInfo != nil && fileInfo.Size() >= headerSize+t.maxData {
+		if fileInfo != nil && fileInfo.Size() > headerSize+t.writeOff {
 			t.wrapped = true
 		}
 	}
@@ -724,9 +729,9 @@ func InspectTierFile(path string) (*TierInfo, error) {
 		info.NewestTS = time.Unix(0, newestNano)
 	}
 
-	if info.WriteOff > 0 && info.Count > 0 {
+	if info.Count > 0 {
 		fileInfo, _ := f.Stat()
-		if fileInfo != nil && fileInfo.Size() >= headerSize+info.MaxData {
+		if fileInfo != nil && fileInfo.Size() > headerSize+info.WriteOff {
 			info.Wrapped = true
 		}
 	}

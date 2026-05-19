@@ -428,6 +428,63 @@ func TestInspectTierFile(t *testing.T) {
 	if info.NewestTS.IsZero() {
 		t.Error("InspectTierFile() NewestTS is zero")
 	}
+	if info.Wrapped {
+		t.Errorf("InspectTierFile() Wrapped = true; want false for a tier with 5 samples in 10MB")
+	}
+}
+
+// TestInspectTierFileWrapped verifies wrap detection after the ring buffer
+// has cycled. Reproduces issue #24 where a full tier reported a tiny
+// fullness percentage and Wrapped=false. The old heuristic compared the
+// file's size against headerSize+maxData, which the file never quite
+// reaches because the last record before a wrap typically leaves a gap.
+func TestInspectTierFileWrapped(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.StorageConfig{
+		Directory: dir,
+		Tiers: []config.TierConfig{
+			{Resolution: time.Second, MaxSize: "64KB", MaxBytes: 64 * 1024},
+		},
+	}
+	store, err := NewStore(cfg)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	// Write enough samples to force the 64KB tier to wrap at least once.
+	for i := 0; i < 300; i++ {
+		if err := store.WriteSample(makeSample(base.Add(time.Duration(i) * time.Second))); err != nil {
+			t.Fatalf("WriteSample(%d): %v", i, err)
+		}
+	}
+
+	if !store.tiers[0].wrapped {
+		t.Fatal("test precondition failed: tier did not wrap")
+	}
+	path := store.tiers[0].path
+	_ = store.Close()
+
+	info, err := InspectTierFile(path)
+	if err != nil {
+		t.Fatalf("InspectTierFile(): %v", err)
+	}
+	if !info.Wrapped {
+		t.Errorf("InspectTierFile() Wrapped = false; want true for a tier that has cycled")
+	}
+
+	// Re-open the store and confirm the runtime path (readHeader) also
+	// detects the wrap. Without this, after a process restart on a wrapped
+	// tier, subsequent writes would not refresh oldestTS and queries
+	// could be routed to a coarser tier than necessary.
+	store2, err := NewStore(cfg)
+	if err != nil {
+		t.Fatalf("NewStore (reopen): %v", err)
+	}
+	defer func() { _ = store2.Close() }()
+	if !store2.tiers[0].wrapped {
+		t.Errorf("after reopen, tier.wrapped = false; want true")
+	}
 }
 
 func TestInspectTierFileMissing(t *testing.T) {
