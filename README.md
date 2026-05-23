@@ -109,6 +109,7 @@ it connects via WebSocket for live updates and falls back to history API for lon
 - Alert system for clock sync, low entropy, and system overload
 - Modern aesthetics with light/dark theme support
 - Optional AI assistant powered by a local Ollama model (see below)
+- Prometheus exporter endpoint for scraping into existing observability stacks
 
 ### AI Assistant
 
