@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
+## [0.16.2] - 2026-05-27
+
+### Security
+
+- Fix: explicit second-character check (CWE-601)
+
 ## [0.16.1] - 2026-05-27
 
 ### Added
