@@ -494,15 +494,24 @@ func normalizeBasePath(p string) (string, error) {
 			return "", fmt.Errorf("web.base_path: contains illegal character %q", r)
 		}
 	}
-	// Collapse repeated slashes and trim.
+	// Ensure a single leading slash.
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	// Reject "//" and "/\" prefixes BEFORE any slash collapsing. The base path
+	// is emitted into a redirect (Location header) and an HTML <base href>,
+	// where a leading "//" or "/\" is interpreted by browsers as a
+	// protocol-relative URL to another host (open redirect, CWE-601). A single
+	// leading slash alone is not sufficient — the second character matters.
+	if len(p) > 1 && (p[1] == '/' || p[1] == '\\') {
+		return "", fmt.Errorf("web.base_path: must not start with %q", p[:2])
+	}
+	// Collapse interior repeated slashes and trim trailing slashes.
 	for strings.Contains(p, "//") {
 		p = strings.ReplaceAll(p, "//", "/")
 	}
 	p = strings.TrimRight(p, "/")
-	if !strings.HasPrefix(p, "/") {
-		p = "/" + p
-	}
-	if p == "/" {
+	if p == "" || p == "/" {
 		return "", nil
 	}
 	for _, seg := range strings.Split(strings.TrimPrefix(p, "/"), "/") {

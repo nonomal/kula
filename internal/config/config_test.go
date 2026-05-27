@@ -290,7 +290,7 @@ func TestNormalizeBasePath(t *testing.T) {
 		{"kula", "/kula", false},
 		{"/kula", "/kula", false},
 		{"/kula/", "/kula", false},
-		{"///kula///", "/kula", false},
+		{"/kula///", "/kula", false},
 		{"/monitoring/kula", "/monitoring/kula", false},
 		{"monitoring/kula/", "/monitoring/kula", false},
 		{"/kula//foo", "/kula/foo", false},
@@ -304,6 +304,12 @@ func TestNormalizeBasePath(t *testing.T) {
 		{"/./kula", "", true},
 		{"/../kula", "", true},
 		{"/kula/..", "", true},
+		// Open-redirect (CWE-601): protocol-relative prefixes must be rejected.
+		{"//evil.com", "", true},
+		{"///kula", "", true},
+		{"//evil.com/path", "", true},
+		{"/\\evil.com", "", true},
+		{"\\\\evil.com", "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
