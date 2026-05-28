@@ -265,6 +265,55 @@ func (c *Collector) collectPostgres(elapsed float64) *PostgresStats {
 		stats.DBSizeBytes = dbSize.Int64
 	}
 
+	// Replication state. All queries here are non-fatal: a user without
+	// pg_monitor/REPLICATION privileges should still get the rest of the
+	// metrics. On primary, ReplicaCount is the count of attached standbys.
+	// On standby, the two lag fields are derived from
+	// pg_last_wal_receive_lsn/pg_last_wal_replay_lsn and
+	// pg_last_xact_replay_timestamp.
+	var inRecovery bool
+	if err := c.pgCollector.db.QueryRowContext(ctx,
+		"SELECT pg_is_in_recovery()",
+	).Scan(&inRecovery); err == nil {
+		stats.IsInRecovery = inRecovery
+	} else {
+		c.debugf("[postgres] pg_is_in_recovery error: %v", err)
+	}
+
+	if !stats.IsInRecovery {
+		var rcount sql.NullInt64
+		if err := c.pgCollector.db.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM pg_stat_replication",
+		).Scan(&rcount); err == nil && rcount.Valid {
+			stats.ReplicaCount = int(rcount.Int64)
+		} else if err != nil {
+			c.debugf("[postgres] pg_stat_replication query error: %v", err)
+		}
+	} else {
+		var lagBytes sql.NullInt64
+		var lagSecs sql.NullFloat64
+		// Cast pg_wal_lsn_diff's numeric result to bigint so lib/pq can scan
+		// it directly into NullInt64. GREATEST(0, ...) on the time delta
+		// guards against brief negative values caused by clock skew between
+		// primary and standby (NTP drift can leave the standby clock a few
+		// hundred ms ahead of the primary's last commit timestamp).
+		if err := c.pgCollector.db.QueryRowContext(ctx, `
+			SELECT
+				COALESCE(pg_wal_lsn_diff(pg_last_wal_receive_lsn(),
+				                         pg_last_wal_replay_lsn())::bigint, 0),
+				GREATEST(0, COALESCE(EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp())), 0))
+		`).Scan(&lagBytes, &lagSecs); err == nil {
+			if lagBytes.Valid {
+				stats.ReplicationLagBytes = lagBytes.Int64
+			}
+			if lagSecs.Valid {
+				stats.ReplicationLagSeconds = round2(lagSecs.Float64)
+			}
+		} else {
+			c.debugf("[postgres] replication lag query error: %v", err)
+		}
+	}
+
 	return stats
 }
 

@@ -277,6 +277,14 @@ type PostgresStats struct {
 
 	// Database size
 	DBSizeBytes int64 `json:"db_size_bytes"`
+
+	// Replication. IsInRecovery is true on a standby. ReplicaCount is
+	// meaningful on a primary (from pg_stat_replication). The two lag fields
+	// are meaningful on a standby; on a primary they are 0.
+	IsInRecovery         bool    `json:"is_in_recovery"`
+	ReplicaCount         int     `json:"replica_count"`
+	ReplicationLagBytes  int64   `json:"repl_lag_bytes"`
+	ReplicationLagSeconds float64 `json:"repl_lag_seconds"`
 }
 
 // MysqlStats holds MySQL database metrics.
@@ -299,6 +307,16 @@ type MysqlStats struct {
 
 	TableLocksWaitedPS float64 `json:"table_locks_waited_ps"`
 	RowLockWaitsPS     float64 `json:"row_lock_waits_ps"`
+
+	// Replication. ReplicaIORunning/ReplicaSQLRunning come from SHOW REPLICA
+	// STATUS (or SHOW SLAVE STATUS) and are false when the server isn't
+	// configured as a replica. ReplicaSecondsBehind uses -1 to mean NULL or
+	// not-replicating. ReplicaCount is from SHOW REPLICAS / SHOW SLAVE HOSTS
+	// and is meaningful on a primary.
+	ReplicaIORunning      bool `json:"replica_io_running"`
+	ReplicaSQLRunning     bool `json:"replica_sql_running"`
+	ReplicaSecondsBehind  int  `json:"replica_seconds_behind"`
+	ReplicaCount          int  `json:"replica_count"`
 }
 
 // PowerSupplyStats holds metrics for a single power supply (battery, mains adapter, UPS).

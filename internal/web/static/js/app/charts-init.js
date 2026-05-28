@@ -127,9 +127,9 @@ export function destroyAppCharts() {
      'card-apache2-workers', 'card-apache2-throughput', 'card-apache2-states',
      'card-pg-connections', 'card-pg-tps', 'card-pg-locks',
      'card-pg-tuples', 'card-pg-io', 'card-pg-cache-hit',
-     'card-pg-table-health', 'card-pg-bgwriter',
+     'card-pg-table-health', 'card-pg-bgwriter', 'card-pg-replication',
      'card-mysql-connections', 'card-mysql-queries', 'card-mysql-slow',
-     'card-mysql-innodb', 'card-mysql-locks'].forEach(id => {
+     'card-mysql-innodb', 'card-mysql-locks', 'card-mysql-replication'].forEach(id => {
         document.getElementById(id)?.remove();
     });
 }

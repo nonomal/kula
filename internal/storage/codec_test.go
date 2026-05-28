@@ -772,3 +772,236 @@ func BenchmarkExtractVsFullDecode(b *testing.B) {
 		}
 	})
 }
+
+// ---- TestDecodePostgresV2Block -----------------------------------------------
+// Regression test: records written with postgres v2 (104-byte block,
+// presence=2) must still decode under the current v3 decoder, leaving the
+// replication fields at zero (since v2 records pre-date them).
+
+func TestDecodePostgresV2Block(t *testing.T) {
+	now := time.Now().Truncate(time.Millisecond)
+	sample := makeSampleFull(now)
+
+	sample.Data.Apps.Postgres = &collector.PostgresStats{
+		ActiveConns:    5,
+		IdleConns:      10,
+		IdleInTxConns:  1,
+		WaitingConns:   2,
+		MaxConns:       100,
+		TxCommitPS:     42.5,
+		TxRollbackPS:   0.3,
+		TupFetchedPS:   100.0,
+		TupReturnedPS:  200.0,
+		TupInsertedPS:  10.0,
+		TupUpdatedPS:   5.0,
+		TupDeletedPS:   1.0,
+		BlksReadPS:     0.4,
+		BlksHitPS:      99.6,
+		BlksHitPct:     99.5,
+		DeadlocksPS:    0.0,
+		BufCheckpointPS: 1.5,
+		BufBackendPS:   0.8,
+		DeadTuples:     500,
+		LiveTuples:     5000,
+		AutovacuumCount: 7,
+		DBSizeBytes:    1024 * 1024 * 1024,
+	}
+	varBuf, err := appendVariable(nil, sample.Data)
+	if err != nil {
+		t.Fatalf("appendVariable: %v", err)
+	}
+
+	noPostgres := *sample.Data
+	noPostgres.Apps.Postgres = nil
+	noPgBuf, err := appendVariable(nil, &noPostgres)
+	if err != nil {
+		t.Fatalf("appendVariable (no pg): %v", err)
+	}
+	pgOff := -1
+	for i := 0; i < len(noPgBuf) && i < len(varBuf); i++ {
+		if noPgBuf[i] != varBuf[i] {
+			pgOff = i
+			break
+		}
+	}
+	if pgOff < 0 {
+		t.Fatal("could not find postgres presence byte offset")
+	}
+
+	// Construct a v2-format variable buffer: everything up to the postgres
+	// presence byte, then presence=2 and the 104-byte v2 block, then the
+	// trailing sections (mysql, apache2, custom) unchanged.
+	var v2Var []byte
+	v2Var = append(v2Var, varBuf[:pgOff]...)
+	v2Var = append(v2Var, 2)
+	pg := sample.Data.Apps.Postgres
+	var pb [104]byte
+	binary.LittleEndian.PutUint32(pb[0:], uint32(int32(pg.ActiveConns)))
+	binary.LittleEndian.PutUint32(pb[4:], uint32(int32(pg.IdleConns)))
+	binary.LittleEndian.PutUint32(pb[8:], uint32(int32(pg.IdleInTxConns)))
+	binary.LittleEndian.PutUint32(pb[12:], uint32(int32(pg.WaitingConns)))
+	binary.LittleEndian.PutUint32(pb[16:], uint32(int32(pg.MaxConns)))
+	putF32(pb[20:], pg.TxCommitPS)
+	putF32(pb[24:], pg.TxRollbackPS)
+	putF32(pb[28:], pg.TupFetchedPS)
+	putF32(pb[32:], pg.TupReturnedPS)
+	putF32(pb[36:], pg.TupInsertedPS)
+	putF32(pb[40:], pg.TupUpdatedPS)
+	putF32(pb[44:], pg.TupDeletedPS)
+	putF32(pb[48:], pg.BlksReadPS)
+	putF32(pb[52:], pg.BlksHitPS)
+	putF32(pb[56:], pg.BlksHitPct)
+	putF32(pb[60:], pg.DeadlocksPS)
+	putF32(pb[64:], pg.BufCheckpointPS)
+	putF32(pb[68:], pg.BufBackendPS)
+	binary.LittleEndian.PutUint64(pb[72:], uint64(pg.DeadTuples))
+	binary.LittleEndian.PutUint64(pb[80:], uint64(pg.LiveTuples))
+	binary.LittleEndian.PutUint64(pb[88:], uint64(pg.AutovacuumCount))
+	binary.LittleEndian.PutUint64(pb[96:], uint64(pg.DBSizeBytes))
+	v2Var = append(v2Var, pb[:]...)
+	// Skip the v3 presence byte + 121-byte block from varBuf and keep the rest.
+	v2Var = append(v2Var, varBuf[pgOff+1+121:]...)
+
+	target := &collector.Sample{}
+	if _, err := decodeVariable(v2Var, target, true, true, true); err != nil {
+		t.Fatalf("decodeVariable(v2 postgres) error: %v", err)
+	}
+	got := target.Apps.Postgres
+	if got == nil {
+		t.Fatal("expected Postgres to be non-nil")
+	}
+	if got.ActiveConns != 5 || got.IdleConns != 10 || got.MaxConns != 100 {
+		t.Errorf("connection fields: active=%d idle=%d max=%d",
+			got.ActiveConns, got.IdleConns, got.MaxConns)
+	}
+	if got.DBSizeBytes != 1024*1024*1024 {
+		t.Errorf("DBSizeBytes = %d", got.DBSizeBytes)
+	}
+	// v3-only replication fields must be zero on a v2 record.
+	if got.IsInRecovery || got.ReplicaCount != 0 ||
+		got.ReplicationLagBytes != 0 || got.ReplicationLagSeconds != 0 {
+		t.Errorf("v3 replication fields should be zero on v2 record: %+v", got)
+	}
+	// Alignment check: trailing sections must still decode.
+	if target.System.Hostname != "test-host" {
+		t.Errorf("alignment check failed: Hostname = %q", target.System.Hostname)
+	}
+}
+
+// ---- TestDecodePostgresV3Block -----------------------------------------------
+// Round-trip test for the v3 postgres block: encode a sample with replication
+// fields populated, decode it, and verify every field survives.
+
+func TestDecodePostgresV3Block(t *testing.T) {
+	now := time.Now().Truncate(time.Millisecond)
+	sample := makeSampleFull(now)
+	sample.Data.Apps.Postgres = &collector.PostgresStats{
+		ActiveConns:           3,
+		IdleConns:             7,
+		MaxConns:              200,
+		TxCommitPS:            12.5,
+		BlksHitPct:            98.0,
+		DBSizeBytes:           42 * 1024 * 1024,
+		IsInRecovery:          true,
+		ReplicaCount:          0,
+		ReplicationLagBytes:   16384,
+		ReplicationLagSeconds: 0.42,
+	}
+
+	encoded, err := encodeSample(sample)
+	if err != nil {
+		t.Fatalf("encodeSample: %v", err)
+	}
+	decoded, err := decodeSample(encoded)
+	if err != nil {
+		t.Fatalf("decodeSample: %v", err)
+	}
+	got := decoded.Data.Apps.Postgres
+	if got == nil {
+		t.Fatal("expected Postgres to be non-nil after round-trip")
+	}
+	if !got.IsInRecovery {
+		t.Error("IsInRecovery did not round-trip")
+	}
+	if got.ReplicationLagBytes != 16384 {
+		t.Errorf("ReplicationLagBytes = %d, want 16384", got.ReplicationLagBytes)
+	}
+	if d := got.ReplicationLagSeconds - 0.42; d > 0.01 || d < -0.01 {
+		t.Errorf("ReplicationLagSeconds = %v, want ~0.42", got.ReplicationLagSeconds)
+	}
+	if got.ReplicaCount != 0 {
+		t.Errorf("ReplicaCount = %d, want 0", got.ReplicaCount)
+	}
+
+	// And the inverse case: a primary with replicas, lag fields zero.
+	sample.Data.Apps.Postgres = &collector.PostgresStats{
+		IsInRecovery: false,
+		ReplicaCount: 4,
+	}
+	encoded2, err := encodeSample(sample)
+	if err != nil {
+		t.Fatalf("encodeSample (primary): %v", err)
+	}
+	dec2, err := decodeSample(encoded2)
+	if err != nil {
+		t.Fatalf("decodeSample (primary): %v", err)
+	}
+	if dec2.Data.Apps.Postgres.IsInRecovery || dec2.Data.Apps.Postgres.ReplicaCount != 4 {
+		t.Errorf("primary round-trip failed: %+v", dec2.Data.Apps.Postgres)
+	}
+}
+
+// ---- TestDecodeMysqlV2Block --------------------------------------------------
+// Round-trip test for the v2 mysql block: replication fields must survive
+// encode/decode. Also verifies the v1 backward-compat path leaves
+// ReplicaSecondsBehind = -1 sentinel.
+
+func TestDecodeMysqlV2Block(t *testing.T) {
+	now := time.Now().Truncate(time.Millisecond)
+	sample := makeSampleFull(now)
+	sample.Data.Apps.Mysql = &collector.MysqlStats{
+		ThreadsConnected:     8,
+		QueriesPS:            100.0,
+		ReplicaIORunning:     true,
+		ReplicaSQLRunning:    true,
+		ReplicaSecondsBehind: 3,
+		ReplicaCount:         0,
+	}
+	encoded, err := encodeSample(sample)
+	if err != nil {
+		t.Fatalf("encodeSample: %v", err)
+	}
+	decoded, err := decodeSample(encoded)
+	if err != nil {
+		t.Fatalf("decodeSample: %v", err)
+	}
+	got := decoded.Data.Apps.Mysql
+	if got == nil {
+		t.Fatal("expected Mysql to be non-nil after round-trip")
+	}
+	if !got.ReplicaIORunning || !got.ReplicaSQLRunning {
+		t.Errorf("replica thread flags didn't round-trip: io=%v sql=%v",
+			got.ReplicaIORunning, got.ReplicaSQLRunning)
+	}
+	if got.ReplicaSecondsBehind != 3 {
+		t.Errorf("ReplicaSecondsBehind = %d, want 3", got.ReplicaSecondsBehind)
+	}
+
+	// Sentinel: -1 must survive the round-trip too (not be confused with zero).
+	sample.Data.Apps.Mysql = &collector.MysqlStats{
+		QueriesPS:            42.0,
+		ReplicaSecondsBehind: -1,
+	}
+	enc2, err := encodeSample(sample)
+	if err != nil {
+		t.Fatalf("encodeSample (sentinel): %v", err)
+	}
+	dec2, err := decodeSample(enc2)
+	if err != nil {
+		t.Fatalf("decodeSample (sentinel): %v", err)
+	}
+	if dec2.Data.Apps.Mysql.ReplicaSecondsBehind != -1 {
+		t.Errorf("-1 sentinel didn't round-trip: got %d",
+			dec2.Data.Apps.Mysql.ReplicaSecondsBehind)
+	}
+}

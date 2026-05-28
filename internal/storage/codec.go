@@ -16,7 +16,10 @@ package storage
 //       - Bump the presence byte to N+1 and write the new, larger block.
 //       - The decoder must branch: if version==1 → read old layout;
 //         if version>=2 → read new layout. Zero-init fields absent in old.
-//     See the PostgreSQL section for a worked example (v1=56B, v2=104B).
+//     See the PostgreSQL section for a worked example (v1=56B, v2=104B,
+//     v3=121B — v3 appends 17 bytes for replication state after the v2
+//     layout). MySQL grew the same way (v1=56B → v2=66B, +10 bytes for
+//     replication state).
 //
 //  3. To add an entirely new application section, append it AFTER the custom
 //     metrics section and gate it behind a new preamble flag bit
@@ -475,22 +478,26 @@ func appendVariable(buf []byte, s *collector.Sample) ([]byte, error) {
 		buf = appendF32(buf, ct.DiskWBPS)
 	}
 
-	// PostgreSQL (1-byte presence + 104-byte fixed block when present)
+	// PostgreSQL (1-byte presence + 121-byte fixed block when present)
 	//
-	// Layout (104 bytes):
-	//   [0:20]   ActiveConns, IdleConns, IdleInTxConns, WaitingConns, MaxConns  — 5×int32
-	//   [20:28]  TxCommitPS, TxRollbackPS                                       — 2×float32
-	//   [28:48]  TupFetchedPS, TupReturnedPS, TupInsertedPS, TupUpdatedPS,
-	//            TupDeletedPS                                                    — 5×float32
-	//   [48:60]  BlksReadPS, BlksHitPS, BlksHitPct                              — 3×float32
-	//   [60:64]  DeadlocksPS                                                    — 1×float32
-	//   [64:72]  BufCheckpointPS, BufBackendPS                                  — 2×float32
-	//   [72:96]  DeadTuples, LiveTuples, AutovacuumCount                        — 3×int64
-	//   [96:104] DBSizeBytes                                                    — 1×int64
+	// Layout (121 bytes — v3, extends v2's 104-byte layout with replication):
+	//   [0:20]    ActiveConns, IdleConns, IdleInTxConns, WaitingConns, MaxConns — 5×int32
+	//   [20:28]   TxCommitPS, TxRollbackPS                                      — 2×float32
+	//   [28:48]   TupFetchedPS, TupReturnedPS, TupInsertedPS, TupUpdatedPS,
+	//             TupDeletedPS                                                   — 5×float32
+	//   [48:60]   BlksReadPS, BlksHitPS, BlksHitPct                             — 3×float32
+	//   [60:64]   DeadlocksPS                                                   — 1×float32
+	//   [64:72]   BufCheckpointPS, BufBackendPS                                 — 2×float32
+	//   [72:96]   DeadTuples, LiveTuples, AutovacuumCount                       — 3×int64
+	//   [96:104]  DBSizeBytes                                                   — 1×int64
+	//   [104:108] ReplicaCount                                                  — 1×int32
+	//   [108:109] IsInRecovery                                                  — 1×uint8
+	//   [109:117] ReplicationLagBytes                                           — 1×int64
+	//   [117:121] ReplicationLagSeconds                                         — 1×float32
 	if s.Apps.Postgres != nil {
-		buf = append(buf, 2) // version 2: 104-byte block (version 1 was 56-byte)
+		buf = append(buf, 3) // version 3: 121-byte block (v2 104B + 17B replication)
 		pg := s.Apps.Postgres
-		var pb [104]byte
+		var pb [121]byte
 		binary.LittleEndian.PutUint32(pb[0:], uint32(int32(pg.ActiveConns)))
 		binary.LittleEndian.PutUint32(pb[4:], uint32(int32(pg.IdleConns)))
 		binary.LittleEndian.PutUint32(pb[8:], uint32(int32(pg.IdleInTxConns)))
@@ -513,6 +520,12 @@ func appendVariable(buf []byte, s *collector.Sample) ([]byte, error) {
 		binary.LittleEndian.PutUint64(pb[80:], uint64(pg.LiveTuples))
 		binary.LittleEndian.PutUint64(pb[88:], uint64(pg.AutovacuumCount))
 		binary.LittleEndian.PutUint64(pb[96:], uint64(pg.DBSizeBytes))
+		binary.LittleEndian.PutUint32(pb[104:], uint32(int32(pg.ReplicaCount)))
+		if pg.IsInRecovery {
+			pb[108] = 1
+		}
+		binary.LittleEndian.PutUint64(pb[109:], uint64(pg.ReplicationLagBytes))
+		putF32(pb[117:], pg.ReplicationLagSeconds)
 		buf = append(buf, pb[:]...)
 	} else {
 		buf = append(buf, 0)
@@ -521,10 +534,18 @@ func appendVariable(buf []byte, s *collector.Sample) ([]byte, error) {
 	// MySQL — presence byte doubles as version tag:
 	//   0 = not present
 	//   1 = v1 format (56-byte block: 4×int32 + 10×float32)
+	//   2 = v2 format (66-byte block: v1 + replication state)
+	//
+	// v2 layout (66 bytes):
+	//   [0:56]   v1 fields (unchanged)
+	//   [56:60]  ReplicaCount         — 1×int32
+	//   [60:61]  ReplicaIORunning     — 1×uint8
+	//   [61:62]  ReplicaSQLRunning    — 1×uint8
+	//   [62:66]  ReplicaSecondsBehind — 1×int32 (sentinel -1 = NULL / not configured)
 	if s.Apps.Mysql != nil {
-		buf = append(buf, 1)
+		buf = append(buf, 2)
 		my := s.Apps.Mysql
-		var mb [56]byte
+		var mb [66]byte
 		binary.LittleEndian.PutUint32(mb[0:], uint32(int32(my.ThreadsConnected)))
 		binary.LittleEndian.PutUint32(mb[4:], uint32(int32(my.ThreadsRunning)))
 		binary.LittleEndian.PutUint32(mb[8:], uint32(int32(my.ThreadsCached)))
@@ -539,6 +560,14 @@ func appendVariable(buf []byte, s *collector.Sample) ([]byte, error) {
 		putF32(mb[44:], my.InnodbBPReadsPS)
 		putF32(mb[48:], my.TableLocksWaitedPS)
 		putF32(mb[52:], my.RowLockWaitsPS)
+		binary.LittleEndian.PutUint32(mb[56:], uint32(int32(my.ReplicaCount)))
+		if my.ReplicaIORunning {
+			mb[60] = 1
+		}
+		if my.ReplicaSQLRunning {
+			mb[61] = 1
+		}
+		binary.LittleEndian.PutUint32(mb[62:], uint32(int32(my.ReplicaSecondsBehind)))
 		buf = append(buf, mb[:]...)
 	} else {
 		buf = append(buf, 0)
@@ -1039,8 +1068,14 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 		pg.DBSizeBytes  = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
 		s.Apps.Postgres = pg
 	} else if pgVersion >= 2 {
-		// v2: 104-byte block with full metrics
-		if err := need(104, "postgres v2 fields"); err != nil {
+		// v2 = 104B; v3 extends with 17B of replication state. The shared
+		// 104-byte prefix is decoded identically and the v3 tail is read
+		// only when the version indicates it's present.
+		blockSize := 104
+		if pgVersion >= 3 {
+			blockSize = 121
+		}
+		if err := need(blockSize, "postgres v2/v3 fields"); err != nil {
 			return off, err
 		}
 		pg := &collector.PostgresStats{}
@@ -1066,18 +1101,30 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 		pg.LiveTuples     = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
 		pg.AutovacuumCount = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
 		pg.DBSizeBytes    = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
+		if pgVersion >= 3 {
+			pg.ReplicaCount         = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+			pg.IsInRecovery         = data[off] != 0; off++
+			pg.ReplicationLagBytes  = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
+			pg.ReplicationLagSeconds = getF32(data[off:]); off += 4
+		}
 		s.Apps.Postgres = pg
 	}
 
 	// MySQL — gated by flagHasMysql so old records (pre-0.17.0) that
 	// lack this flag skip the byte and continue to Apache2 or Custom.
+	//   1 = v1 (56-byte block)
+	//   2 = v2 (66-byte block: v1 + replication state)
 	if hasMysql {
 		if err := need(1, "mysql presence"); err != nil {
 			return off, err
 		}
 		myVersion := data[off]; off++
 		if myVersion >= 1 {
-			if err := need(56, "mysql v1 fields"); err != nil {
+			blockSize := 56
+			if myVersion >= 2 {
+				blockSize = 66
+			}
+			if err := need(blockSize, "mysql v1/v2 fields"); err != nil {
 				return off, err
 			}
 			my := &collector.MysqlStats{}
@@ -1095,6 +1142,17 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 			my.InnodbBPReadsPS = getF32(data[off:]); off += 4
 			my.TableLocksWaitedPS = getF32(data[off:]); off += 4
 			my.RowLockWaitsPS  = getF32(data[off:]); off += 4
+			if myVersion >= 2 {
+				my.ReplicaCount        = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+				my.ReplicaIORunning    = data[off] != 0; off++
+				my.ReplicaSQLRunning   = data[off] != 0; off++
+				my.ReplicaSecondsBehind = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+			} else {
+				// v1 records have no replication info; sentinel -1 means
+				// "unknown / not configured" so downstream consumers can
+				// distinguish from a real "0 seconds behind" reading.
+				my.ReplicaSecondsBehind = -1
+			}
 			s.Apps.Mysql = my
 		}
 	}

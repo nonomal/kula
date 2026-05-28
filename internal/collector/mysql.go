@@ -191,7 +191,100 @@ func (c *Collector) collectMysql(elapsed float64) *MysqlStats {
 
 	c.myCollector.calculateStats(stats, cur, elapsed)
 
+	// Replication: sentinel -1 means "not configured / NULL". Queries here
+	// are non-fatal — a server without replication or a user without
+	// REPLICATION CLIENT privilege should still get all the other metrics.
+	stats.ReplicaSecondsBehind = -1
+	c.collectMysqlReplicaStatus(ctx, stats)
+	c.collectMysqlReplicaCount(ctx, stats)
+
 	return stats
+}
+
+// collectMysqlReplicaStatus fills ReplicaIORunning, ReplicaSQLRunning, and
+// ReplicaSecondsBehind from SHOW REPLICA STATUS, falling back to the legacy
+// SHOW SLAVE STATUS syntax for older MySQL/MariaDB.
+func (c *Collector) collectMysqlReplicaStatus(ctx context.Context, stats *MysqlStats) {
+	rows, err := c.myCollector.db.QueryContext(ctx, "SHOW REPLICA STATUS")
+	if err != nil {
+		rows, err = c.myCollector.db.QueryContext(ctx, "SHOW SLAVE STATUS")
+		if err != nil {
+			c.debugf("[mysql] SHOW REPLICA/SLAVE STATUS error: %v", err)
+			return
+		}
+	}
+	defer func() { _ = rows.Close() }()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		c.debugf("[mysql] replica status columns error: %v", err)
+		return
+	}
+	if !rows.Next() {
+		// rows.Next() returns false on iteration error too, not just EOF.
+		// Surface the error in debug logs so a transient network failure
+		// isn't silently misread as "not configured as a replica".
+		if err := rows.Err(); err != nil {
+			c.debugf("[mysql] replica status iter error: %v", err)
+		}
+		return
+	}
+
+	vals := make([]sql.NullString, len(cols))
+	scanArgs := make([]interface{}, len(cols))
+	for i := range vals {
+		scanArgs[i] = &vals[i]
+	}
+	if err := rows.Scan(scanArgs...); err != nil {
+		c.debugf("[mysql] replica status scan error: %v", err)
+		return
+	}
+
+	getStr := func(keys ...string) (string, bool) {
+		for i, name := range cols {
+			for _, k := range keys {
+				if name == k {
+					return vals[i].String, vals[i].Valid
+				}
+			}
+		}
+		return "", false
+	}
+	if v, ok := getStr("Replica_IO_Running", "Slave_IO_Running"); ok {
+		stats.ReplicaIORunning = v == "Yes"
+	}
+	if v, ok := getStr("Replica_SQL_Running", "Slave_SQL_Running"); ok {
+		stats.ReplicaSQLRunning = v == "Yes"
+	}
+	if v, ok := getStr("Seconds_Behind_Source", "Seconds_Behind_Master"); ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			stats.ReplicaSecondsBehind = n
+		}
+	}
+}
+
+// collectMysqlReplicaCount fills ReplicaCount from SHOW REPLICAS, falling back
+// to SHOW SLAVE HOSTS for older servers.
+func (c *Collector) collectMysqlReplicaCount(ctx context.Context, stats *MysqlStats) {
+	rows, err := c.myCollector.db.QueryContext(ctx, "SHOW REPLICAS")
+	if err != nil {
+		rows, err = c.myCollector.db.QueryContext(ctx, "SHOW SLAVE HOSTS")
+		if err != nil {
+			c.debugf("[mysql] SHOW REPLICAS/SLAVE HOSTS error: %v", err)
+			return
+		}
+	}
+	defer func() { _ = rows.Close() }()
+
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	if err := rows.Err(); err != nil {
+		c.debugf("[mysql] replica count iteration error: %v", err)
+		return
+	}
+	stats.ReplicaCount = count
 }
 
 func (mc *mysqlCollector) calculateStats(stats *MysqlStats, cur mysqlRaw, elapsed float64) {

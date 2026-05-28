@@ -666,6 +666,37 @@ export function addSampleToCharts(item, ts) {
             const sub = document.getElementById('mysql-locks-subtitle');
             if (sub) sub.textContent = `Table: ${(m.table_locks_waited_ps || 0).toFixed(2)}  Row: ${(m.row_lock_waits_ps || 0).toFixed(2)}`;
         }
+
+        // 6. Replication — only render the card when the server actually
+        // participates in replication: the field is always present in JSON
+        // for v2+ records, so a presence check would render an empty card
+        // on every standalone server. Detect "is a replica" via either
+        // thread being running OR a non-sentinel seconds-behind value, and
+        // "is a primary with replicas" via replica_count > 0.
+        const mIsReplica = m.replica_io_running || m.replica_sql_running ||
+            (typeof m.replica_seconds_behind === 'number' && m.replica_seconds_behind >= 0);
+        const mHasReplicas = (m.replica_count || 0) > 0;
+        if (mIsReplica || mHasReplicas) {
+            if (!state.charts.mysqlRepl) {
+                createAppChartCard('card-mysql-replication', 'chart-mysql-replication', 'mysql-repl-subtitle', 'MySQL — Replication', APP_ORDER_MYSQL + 5);
+                state.charts.mysqlRepl = createTimeSeriesChart('chart-mysql-replication', [
+                    { label: 'Seconds Behind',     borderColor: colors.red,    backgroundColor: colors.redAlpha,    fill: true,  data: [] },
+                    { label: 'Replicas Connected', borderColor: colors.blue,   data: [], fill: false },
+                ]);
+            }
+            if (state.charts.mysqlRepl) {
+                const secs = (typeof m.replica_seconds_behind === 'number' && m.replica_seconds_behind >= 0) ? m.replica_seconds_behind : null;
+                state.charts.mysqlRepl.data.datasets[0].data.push(point(secs));
+                state.charts.mysqlRepl.data.datasets[1].data.push(point(m.replica_count));
+                const sub = document.getElementById('mysql-repl-subtitle');
+                if (sub) {
+                    const io  = m.replica_io_running  ? 'running' : 'stopped';
+                    const sql = m.replica_sql_running ? 'running' : 'stopped';
+                    const lag = secs === null ? 'n/a' : `${secs}s`;
+                    sub.textContent = `IO: ${io}  SQL: ${sql}  Lag: ${lag}  Replicas: ${m.replica_count || 0}`;
+                }
+            }
+        }
     }
 
     // Containers (3 charts per container: CPU, Memory, I/O)
@@ -880,6 +911,32 @@ export function addSampleToCharts(item, ts) {
             state.charts.pgBgwriter.data.datasets[1].data.push(point(pg.buf_backend_ps));
             const sub = document.getElementById('pg-bgwriter-subtitle');
             if (sub) sub.textContent = `Checkpoint: ${(pg.buf_checkpoint_ps || 0).toFixed(1)}/s  Backend: ${(pg.buf_backend_ps || 0).toFixed(1)}/s`;
+        }
+
+        // 9. Replication — only render when the server actually participates
+        // in replication (standby OR primary with connected replicas). The
+        // is_in_recovery field is always present in v3+ JSON, so a presence
+        // check would render an empty card on every standalone server.
+        if (pg.is_in_recovery || (pg.replica_count || 0) > 0) {
+            if (!state.charts.pgRepl) {
+                createAppChartCard('card-pg-replication', 'chart-pg-replication', 'pg-repl-subtitle', 'PostgreSQL — Replication', APP_ORDER_POSTGRES + 8);
+                state.charts.pgRepl = createTimeSeriesChart('chart-pg-replication', [
+                    { label: 'Lag Seconds',        borderColor: colors.red,  backgroundColor: colors.redAlpha, fill: true,  data: [] },
+                    { label: 'Replicas Connected', borderColor: colors.blue, data: [], fill: false },
+                ]);
+            }
+            if (state.charts.pgRepl) {
+                state.charts.pgRepl.data.datasets[0].data.push(point(pg.repl_lag_seconds));
+                state.charts.pgRepl.data.datasets[1].data.push(point(pg.replica_count));
+                const sub = document.getElementById('pg-repl-subtitle');
+                if (sub) {
+                    if (pg.is_in_recovery) {
+                        sub.textContent = `Standby  Lag: ${(pg.repl_lag_seconds || 0).toFixed(2)}s / ${formatBytesShort(pg.repl_lag_bytes || 0)}`;
+                    } else {
+                        sub.textContent = `Primary  Replicas: ${pg.replica_count || 0}`;
+                    }
+                }
+            }
         }
     }
 

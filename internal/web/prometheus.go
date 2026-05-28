@@ -539,6 +539,22 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		gauge("kula_postgres_database_size_bytes",
 			"PostgreSQL monitored database size in bytes.",
 			host, float64(p.DBSizeBytes))
+		inRecovery := 0.0
+		if p.IsInRecovery {
+			inRecovery = 1.0
+		}
+		gauge("kula_postgres_is_in_recovery",
+			"1 if this PostgreSQL node is operating as a standby, 0 if primary.",
+			host, inRecovery)
+		gauge("kula_postgres_replicas_connected",
+			"Number of standbys connected to this PostgreSQL primary.",
+			host, float64(p.ReplicaCount))
+		gauge("kula_postgres_replication_lag_bytes",
+			"PostgreSQL WAL bytes behind primary on a standby (0 on a primary).",
+			host, float64(p.ReplicationLagBytes))
+		gauge("kula_postgres_replication_lag_seconds",
+			"PostgreSQL replay lag in seconds on a standby (0 on a primary).",
+			host, p.ReplicationLagSeconds)
 	}
 
 	// ---- Applications: MySQL/MariaDB ---------------------------------------
@@ -585,6 +601,31 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		gauge("kula_mysql_row_lock_waits_per_second",
 			"MySQL row lock waits per second.",
 			host, m.RowLockWaitsPS)
+		ioRunning := 0.0
+		if m.ReplicaIORunning {
+			ioRunning = 1.0
+		}
+		sqlRunning := 0.0
+		if m.ReplicaSQLRunning {
+			sqlRunning = 1.0
+		}
+		gauge("kula_mysql_replica_io_running",
+			"1 if the MySQL replica IO thread is running, 0 otherwise.",
+			host, ioRunning)
+		gauge("kula_mysql_replica_sql_running",
+			"1 if the MySQL replica SQL thread is running, 0 otherwise.",
+			host, sqlRunning)
+		// -1 sentinel means the server isn't configured as a replica or the
+		// value is NULL. Omit the gauge in that case so dashboards don't see
+		// a misleading zero.
+		if m.ReplicaSecondsBehind >= 0 {
+			gauge("kula_mysql_replica_seconds_behind",
+				"MySQL replica lag in seconds (Seconds_Behind_Source).",
+				host, float64(m.ReplicaSecondsBehind))
+		}
+		gauge("kula_mysql_replicas_connected",
+			"Number of replicas connected to this MySQL primary.",
+			host, float64(m.ReplicaCount))
 	}
 
 	// ---- Applications: Custom ----------------------------------------------

@@ -473,6 +473,7 @@ def _decode_variable(
     #   0 = not present
     #   1 = v1 (56-byte block: 3×i32 + 7×f32 + 2×i64)
     #   2 = v2 (104-byte block: 5×i32 + 13×f32 + 4×i64)
+    #   3 = v3 (121-byte block: v2 + replication state)
     pg_version, off = _get_u8(data, off)
     if pg_version == 1:
         active_conns, off = _get_i32(data, off)
@@ -525,8 +526,18 @@ def _decode_variable(
         live_tuples, off = _get_i64(data, off)
         autovacuum_count, off = _get_i64(data, off)
         db_size_bytes, off = _get_i64(data, off)
+        replica_count = 0
+        is_in_recovery = False
+        repl_lag_bytes = 0
+        repl_lag_seconds = 0.0
+        if pg_version >= 3:
+            replica_count, off = _get_i32(data, off)
+            in_rec_byte, off = _get_u8(data, off)
+            is_in_recovery = in_rec_byte != 0
+            repl_lag_bytes, off = _get_i64(data, off)
+            repl_lag_seconds, off = _get_f32(data, off)
         apps["postgres"] = {
-            "version": 2,
+            "version": pg_version,
             "active_conns": active_conns,
             "idle_conns": idle_conns,
             "idle_in_tx_conns": idle_in_tx_conns,
@@ -549,12 +560,17 @@ def _decode_variable(
             "live_tuples": live_tuples,
             "autovacuum_count": autovacuum_count,
             "db_size_bytes": db_size_bytes,
+            "is_in_recovery": is_in_recovery,
+            "replica_count": replica_count,
+            "repl_lag_bytes": repl_lag_bytes,
+            "repl_lag_seconds": repl_lag_seconds,
         }
 
     # 7d. MySQL — gated by has_mysql flag so old records skip this section.
     # Presence byte doubles as version tag:
     #   0 = not present
     #   1 = v1 format (56-byte block: 4×i32 + 10×f32)
+    #   2 = v2 format (66-byte block: v1 + replication state)
     if has_mysql:
         my_version, off = _get_u8(data, off)
         if my_version >= 1:
@@ -572,7 +588,19 @@ def _decode_variable(
             innodb_bp_reads_ps, off = _get_f32(data, off)
             table_locks_waited_ps, off = _get_f32(data, off)
             row_lock_waits_ps, off = _get_f32(data, off)
+            replica_count = 0
+            replica_io_running = False
+            replica_sql_running = False
+            replica_seconds_behind = -1
+            if my_version >= 2:
+                replica_count, off = _get_i32(data, off)
+                io_byte, off = _get_u8(data, off)
+                sql_byte, off = _get_u8(data, off)
+                replica_io_running = io_byte != 0
+                replica_sql_running = sql_byte != 0
+                replica_seconds_behind, off = _get_i32(data, off)
             apps["mysql"] = {
+                "version": my_version,
                 "threads_connected": threads_connected,
                 "threads_running": threads_running,
                 "threads_cached": threads_cached,
@@ -587,6 +615,10 @@ def _decode_variable(
                 "innodb_bp_reads_ps": innodb_bp_reads_ps,
                 "table_locks_waited_ps": table_locks_waited_ps,
                 "row_lock_waits_ps": row_lock_waits_ps,
+                "replica_io_running": replica_io_running,
+                "replica_sql_running": replica_sql_running,
+                "replica_seconds_behind": replica_seconds_behind,
+                "replica_count": replica_count,
             }
 
     # 7e. Apache2 — gated by has_apache2 flag so old records skip this section.
