@@ -15,7 +15,41 @@ else
 fi
 
 PKG_NAME="kula"
+GITHUB_URL="https://github.com/c0m4r/kula"
+
+# Operate from the project root so dist/ paths are consistent regardless of CWD
+cd "${PROJECT_ROOT}"
+
 AUR_DIR="dist/kula-$VERSION-aur"
+ARCHIVE_FILE="dist/${VERSION}.tar.gz"
+AUR_TARBALL="dist/kula-${VERSION}-aur.tar.gz"
+CHECKSUMS="dist/CHECKSUMS.sha256.txt"
+mkdir -p dist
+
+# Download a file with curl or wget, failing hard on HTTP errors / empty output
+download() {
+    local url="$1" out="$2"
+    if command -v curl >/dev/null; then
+        curl -fSL "$url" -o "$out"
+    elif command -v wget >/dev/null; then
+        wget -O "$out" "$url"
+    else
+        echo "Error: neither curl nor wget is installed."
+        return 1
+    fi
+}
+
+# Add/replace an entry for a dist file in CHECKSUMS.sha256.txt (kept sorted by name)
+append_checksum() {
+    local f="$1" sum
+    sum=$(cd dist && sha256sum "$f" | awk '{print $1}')
+    if [ -f "${CHECKSUMS}" ]; then
+        awk -v f="$f" '$2 != f' "${CHECKSUMS}" > "${CHECKSUMS}.tmp"
+        mv "${CHECKSUMS}.tmp" "${CHECKSUMS}"
+    fi
+    echo "${sum}  ${f}" >> "${CHECKSUMS}"
+    sort -k2 "${CHECKSUMS}" -o "${CHECKSUMS}"
+}
 
 # Choose between local and remote installation
 echo "Select installation source:"
@@ -27,11 +61,28 @@ SOURCE_CHOICE="${SOURCE_CHOICE:-1}"
 echo "Creating AUR directory structure..."
 mkdir -p "${AUR_DIR}"
 
-### TODO: add checksum verification
+# The AUR dir is regeneratable build output: if we bail out before completing
+# (e.g. the release tarball is not published yet, or makepkg fails), don't leave
+# a half-built dir behind. Disarmed on success just before the final messages.
+trap 'rm -rf "${AUR_DIR}"' EXIT
 
 if [ "${SOURCE_CHOICE}" = "2" ]; then
     echo "Using remote source (GitHub release tarball)"
-    GITHUB_URL="https://github.com/c0m4r/kula"
+
+    # The PKGBUILD pins the GitHub source archive, which only exists once the
+    # release/tag is published. Fetch it and derive the real sha256 — failing
+    # hard if it is not yet available.
+    ARCHIVE_URL="${GITHUB_URL}/archive/${VERSION}.tar.gz"
+    echo "Fetching source archive: ${ARCHIVE_URL}"
+    if ! download "${ARCHIVE_URL}" "${ARCHIVE_FILE}" || [ ! -s "${ARCHIVE_FILE}" ]; then
+        echo "Error: could not download ${ARCHIVE_URL}"
+        echo "Publish the GitHub release for ${VERSION} first, then re-run this script."
+        rm -f "${ARCHIVE_FILE}"
+        exit 1
+    fi
+    ARCHIVE_SHA256=$(sha256sum "${ARCHIVE_FILE}" | awk '{print $1}')
+    echo "Source archive sha256: ${ARCHIVE_SHA256}"
+
     cat << EOF > "${AUR_DIR}/PKGBUILD"
 # Maintainer: c0m4r <https://github.com/c0m4r>
 pkgname=${PKG_NAME}
@@ -44,7 +95,7 @@ license=('AGPL-3.0')
 depends=('glibc')
 makedepends=('go')
 source=("\${pkgname}-\${pkgver}.tar.gz::${GITHUB_URL}/archive/\${pkgver}.tar.gz")
-sha256sums=('255de5051a917bf270f6c405c99d735329c590bdaaa9cafb1e4e89cd70118cc9')
+sha256sums=('${ARCHIVE_SHA256}')
 install='kula.install'
 
 check() {
@@ -218,15 +269,31 @@ pre_remove() {
 }
 EOF
 
-cd "${AUR_DIR}"
-makepkg --printsrcinfo > .SRCINFO
-cat << EOF > .gitignore
+(
+    cd "${AUR_DIR}"
+    makepkg --printsrcinfo > .SRCINFO
+    cat << EOF > .gitignore
 *
 !/.gitignore
 !/kula.install
 !/PKGBUILD
 !/.SRCINFO
 EOF
+)
+
+# Package the AUR files into the artifact install.sh downloads
+tar -czf "${AUR_TARBALL}" -C dist "kula-${VERSION}-aur"
+echo "Created ${AUR_TARBALL}"
+
+# Record checksums so install.sh can verify the AUR path (remote builds only)
+if [ "${SOURCE_CHOICE}" = "2" ]; then
+    append_checksum "$(basename "${ARCHIVE_FILE}")"
+    append_checksum "$(basename "${AUR_TARBALL}")"
+    echo "Updated ${CHECKSUMS} — re-upload it to the GitHub release."
+fi
+
+# Completed successfully — keep the generated AUR dir.
+trap - EXIT
 
 echo "AUR package files generated in ${AUR_DIR}/"
 echo "To build, cd ${AUR_DIR} and run 'makepkg -si'"
