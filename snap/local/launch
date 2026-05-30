@@ -1,0 +1,27 @@
+#!/bin/sh
+# Runtime launcher for the Kula snap, shared by the `daemon` and `kula` apps.
+#
+# Strict confinement means Kula cannot write its default /var/lib/kula data
+# dir, and a fresh install has no config file yet. This wrapper:
+#   1. points storage at $SNAP_COMMON/data (honoured via KULA_DIRECTORY, which
+#      config.Load applies before the Landlock sandbox reads the path);
+#   2. seeds an editable config at $SNAP_DATA/config.yaml on first run;
+#   3. execs the real binary with --config and forwards any arguments.
+#
+# Only the root-run daemon can write $SNAP_DATA / $SNAP_COMMON; for the
+# user-facing `kula` CLI the writes are best-effort (run storage-touching
+# subcommands with sudo).
+set -eu
+
+CONFIG="${SNAP_DATA}/config.yaml"
+export KULA_DIRECTORY="${KULA_DIRECTORY:-${SNAP_COMMON}/data}"
+
+# Seed an editable config from the packaged example on first run.
+if [ ! -f "${CONFIG}" ] && [ -w "${SNAP_DATA}" ]; then
+    cp "${SNAP}/etc/kula/config.example.yaml" "${CONFIG}"
+fi
+
+# Ensure the writable data dir exists (best-effort for the non-root CLI).
+[ -d "${KULA_DIRECTORY}" ] || mkdir -p "${KULA_DIRECTORY}" 2>/dev/null || true
+
+exec "${SNAP}/bin/kula" --config "${CONFIG}" "$@"

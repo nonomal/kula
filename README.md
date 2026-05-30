@@ -209,6 +209,14 @@ cd kula
 makepkg -si
 ```
 
+### Snap
+
+```bash
+sudo snap install kula
+```
+
+The snap uses **strict sandbox** so by default Kula features will be limited to the basics, which can be extended with snap connect.
+
 ### Build from Source
 
 ```bash
@@ -381,6 +389,20 @@ ls -1 dist/kula-*.rpm
 ```bash
 ./addons/docker/build.sh
 docker compose -f addons/docker/docker-compose.yml up -d
+```
+
+### Snap
+
+Requires [snapcraft](https://documentation.ubuntu.com/snapcraft/stable/howto/setup/)
+and a build backend (LXD recommended):
+
+```bash
+snap install snapcraft --classic
+snap install lxd
+lxd init --auto
+./addons/build_snap.sh            # host arch, into dist/
+./addons/build_snap.sh cross      # cross-build amd64/arm64/riscv64 locally
+ls -1 dist/kula-*.snap
 ```
 
 ---

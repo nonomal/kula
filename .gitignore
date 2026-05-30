@@ -3,6 +3,10 @@
 /build_appimage
 /build_deb
 /build_rpm
+/parts/
+/stage/
+/prime/
+/*.snap
 /data/
 /dist/
 /kula*
