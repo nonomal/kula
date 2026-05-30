@@ -24,7 +24,6 @@ var (
 	prefixFD   = []byte("fd")
 )
 
-
 type diskRaw struct {
 	reads     uint64
 	writes    uint64
@@ -332,7 +331,6 @@ func sameMountNamespace() bool {
 	return ns1 == nsSelf
 }
 
-
 // scanMounts reads one mounts-format file and appends matching filesystems to
 // result, using seen to deduplicate by mount point across multiple sources.
 func (c *Collector) scanMounts(f *os.File, result *[]FileSystemInfo, seen map[string]bool, explicitFilter bool) {
@@ -415,7 +413,6 @@ func (c *Collector) scanMounts(f *os.File, result *[]FileSystemInfo, seen map[st
 		})
 	}
 }
-
 
 // getDiskTemperature attempts to read temperature for a disk device.
 func (c *Collector) getDiskTemperature(devName string) (float64, []DiskTempSensor) {

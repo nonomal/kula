@@ -326,18 +326,18 @@ func (pc *postgresCollector) calculateStats(stats *PostgresStats, cur pgRaw, ela
 			}
 			return round2(float64(cur-prev) / elapsed)
 		}
-		stats.TxCommitPS      = rate(cur.xactCommit,    pc.prev.xactCommit)
-		stats.TxRollbackPS    = rate(cur.xactRollback,  pc.prev.xactRollback)
-		stats.TupFetchedPS    = rate(cur.tupFetched,    pc.prev.tupFetched)
-		stats.TupReturnedPS   = rate(cur.tupReturned,   pc.prev.tupReturned)
-		stats.TupInsertedPS   = rate(cur.tupInserted,   pc.prev.tupInserted)
-		stats.TupUpdatedPS    = rate(cur.tupUpdated,    pc.prev.tupUpdated)
-		stats.TupDeletedPS    = rate(cur.tupDeleted,    pc.prev.tupDeleted)
-		stats.BlksReadPS      = rate(cur.blksRead,      pc.prev.blksRead)
-		stats.BlksHitPS       = rate(cur.blksHit,       pc.prev.blksHit)
-		stats.DeadlocksPS     = rate(cur.deadlocks,     pc.prev.deadlocks)
+		stats.TxCommitPS = rate(cur.xactCommit, pc.prev.xactCommit)
+		stats.TxRollbackPS = rate(cur.xactRollback, pc.prev.xactRollback)
+		stats.TupFetchedPS = rate(cur.tupFetched, pc.prev.tupFetched)
+		stats.TupReturnedPS = rate(cur.tupReturned, pc.prev.tupReturned)
+		stats.TupInsertedPS = rate(cur.tupInserted, pc.prev.tupInserted)
+		stats.TupUpdatedPS = rate(cur.tupUpdated, pc.prev.tupUpdated)
+		stats.TupDeletedPS = rate(cur.tupDeleted, pc.prev.tupDeleted)
+		stats.BlksReadPS = rate(cur.blksRead, pc.prev.blksRead)
+		stats.BlksHitPS = rate(cur.blksHit, pc.prev.blksHit)
+		stats.DeadlocksPS = rate(cur.deadlocks, pc.prev.deadlocks)
 		stats.BufCheckpointPS = rate(cur.bufCheckpoint, pc.prev.bufCheckpoint)
-		stats.BufBackendPS    = rate(cur.bufBackend,    pc.prev.bufBackend)
+		stats.BufBackendPS = rate(cur.bufBackend, pc.prev.bufBackend)
 	}
 	pc.prev = cur
 

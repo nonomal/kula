@@ -57,7 +57,7 @@ func TestContainerCollector(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	
+
 	if len(stats) == 0 {
 		t.Fatal("No container stats collected")
 	}

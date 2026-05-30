@@ -6,15 +6,15 @@ import "time"
 type Sample struct {
 	Timestamp time.Time `json:"ts"`
 
-	CPU     CPUStats     `json:"cpu"`
-	LoadAvg LoadAvg      `json:"lavg"`
-	Memory  MemoryStats  `json:"mem"`
-	Swap    SwapStats    `json:"swap"`
-	Network NetworkStats `json:"net"`
-	Disks   DiskStats    `json:"disk"`
-	System  SystemStats  `json:"sys"`
-	Process ProcessStats `json:"proc"`
-	Self    SelfStats    `json:"self"`
+	CPU     CPUStats           `json:"cpu"`
+	LoadAvg LoadAvg            `json:"lavg"`
+	Memory  MemoryStats        `json:"mem"`
+	Swap    SwapStats          `json:"swap"`
+	Network NetworkStats       `json:"net"`
+	Disks   DiskStats          `json:"disk"`
+	System  SystemStats        `json:"sys"`
+	Process ProcessStats       `json:"proc"`
+	Self    SelfStats          `json:"self"`
 	GPU     []GPUStats         `json:"gpu,omitempty"`
 	PSU     []PowerSupplyStats `json:"psu,omitempty"`
 	Apps    ApplicationsStats  `json:"apps,omitempty"`
@@ -181,7 +181,7 @@ type ApplicationsStats struct {
 	Containers []ContainerStats               `json:"containers,omitempty"`
 	Postgres   *PostgresStats                 `json:"postgres,omitempty"`
 	Mysql      *MysqlStats                    `json:"mysql,omitempty"`
-	Custom     map[string][]CustomMetricValue  `json:"custom,omitempty"`
+	Custom     map[string][]CustomMetricValue `json:"custom,omitempty"`
 }
 
 // NginxStats holds metrics parsed from the nginx stub_status module.
@@ -281,9 +281,9 @@ type PostgresStats struct {
 	// Replication. IsInRecovery is true on a standby. ReplicaCount is
 	// meaningful on a primary (from pg_stat_replication). The two lag fields
 	// are meaningful on a standby; on a primary they are 0.
-	IsInRecovery         bool    `json:"is_in_recovery"`
-	ReplicaCount         int     `json:"replica_count"`
-	ReplicationLagBytes  int64   `json:"repl_lag_bytes"`
+	IsInRecovery          bool    `json:"is_in_recovery"`
+	ReplicaCount          int     `json:"replica_count"`
+	ReplicationLagBytes   int64   `json:"repl_lag_bytes"`
 	ReplicationLagSeconds float64 `json:"repl_lag_seconds"`
 }
 
@@ -294,11 +294,11 @@ type MysqlStats struct {
 	ThreadsCached    int `json:"threads_cached"`
 	MaxConnections   int `json:"max_conns"`
 
-	QueriesPS     float64 `json:"queries_ps"`
-	ComSelectPS   float64 `json:"select_ps"`
-	ComInsertPS   float64 `json:"insert_ps"`
-	ComUpdatePS   float64 `json:"update_ps"`
-	ComDeletePS   float64 `json:"delete_ps"`
+	QueriesPS   float64 `json:"queries_ps"`
+	ComSelectPS float64 `json:"select_ps"`
+	ComInsertPS float64 `json:"insert_ps"`
+	ComUpdatePS float64 `json:"update_ps"`
+	ComDeletePS float64 `json:"delete_ps"`
 
 	SlowQueriesPS float64 `json:"slow_queries_ps"`
 
@@ -313,10 +313,10 @@ type MysqlStats struct {
 	// configured as a replica. ReplicaSecondsBehind uses -1 to mean NULL or
 	// not-replicating. ReplicaCount is from SHOW REPLICAS / SHOW SLAVE HOSTS
 	// and is meaningful on a primary.
-	ReplicaIORunning      bool `json:"replica_io_running"`
-	ReplicaSQLRunning     bool `json:"replica_sql_running"`
-	ReplicaSecondsBehind  int  `json:"replica_seconds_behind"`
-	ReplicaCount          int  `json:"replica_count"`
+	ReplicaIORunning     bool `json:"replica_io_running"`
+	ReplicaSQLRunning    bool `json:"replica_sql_running"`
+	ReplicaSecondsBehind int  `json:"replica_seconds_behind"`
+	ReplicaCount         int  `json:"replica_count"`
 
 	// Replication error / state. LastIOErrno and LastSQLErrno are the most
 	// recent MySQL error codes reported by the IO and SQL threads; 0 means
@@ -330,13 +330,13 @@ type MysqlStats struct {
 
 // PowerSupplyStats holds metrics for a single power supply (battery, mains adapter, UPS).
 type PowerSupplyStats struct {
-	Name       string  `json:"name"`
-	Type       string  `json:"type"`              // "Battery", "Mains", "UPS"
-	Status     string  `json:"status"`            // "Charging", "Discharging", "Full", "Not charging"
-	Capacity   int     `json:"capacity,omitempty"` // 0-100%
-	VoltageV   float64 `json:"voltage_v,omitempty"`
-	CurrentA   float64 `json:"current_a,omitempty"`
-	PowerW     float64 `json:"power_w,omitempty"`
+	Name         string  `json:"name"`
+	Type         string  `json:"type"`               // "Battery", "Mains", "UPS"
+	Status       string  `json:"status"`             // "Charging", "Discharging", "Full", "Not charging"
+	Capacity     int     `json:"capacity,omitempty"` // 0-100%
+	VoltageV     float64 `json:"voltage_v,omitempty"`
+	CurrentA     float64 `json:"current_a,omitempty"`
+	PowerW       float64 `json:"power_w,omitempty"`
 	EnergyWhNow  float64 `json:"energy_wh_now,omitempty"`
 	EnergyWhFull float64 `json:"energy_wh_full,omitempty"`
 }
