@@ -987,8 +987,9 @@ func TestQueryCacheHit(t *testing.T) {
 	}
 }
 
-// TestQueryCacheInvalidatedOnWrite verifies that WriteSample clears the
-// query cache so stale results are never returned.
+// TestQueryCacheInvalidatedOnWrite verifies that WriteSample evicts cache
+// entries whose window reaches the live edge, so the next fetch reflects the
+// newly written sample and stale live results are never returned.
 func TestQueryCacheInvalidatedOnWrite(t *testing.T) {
 	store := newTestStore(t)
 	defer func() { _ = store.Close() }()
@@ -1024,6 +1025,48 @@ func TestQueryCacheInvalidatedOnWrite(t *testing.T) {
 	if len(r2.Samples) <= len(r1.Samples) {
 		t.Errorf("expected more samples after cache invalidation: before=%d after=%d",
 			len(r1.Samples), len(r2.Samples))
+	}
+}
+
+// TestQueryCacheRetainsPastWindowOnWrite verifies that a cached query for a
+// window ending before the live edge survives a subsequent WriteSample — past
+// windows are immutable, so they no longer need to be discarded on every tick.
+func TestQueryCacheRetainsPastWindowOnWrite(t *testing.T) {
+	store := newTestStore(t)
+	defer func() { _ = store.Close() }()
+
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 5; i++ {
+		ts := base.Add(time.Duration(i) * time.Second)
+		if err := store.WriteSample(makeSampleWithCPU(ts, float64(i*10))); err != nil {
+			t.Fatalf("WriteSample(%d): %v", i, err)
+		}
+	}
+
+	// Query a window that ends well before the newest sample (a past window).
+	from := base
+	to := base.Add(2 * time.Second)
+	if _, err := store.QueryRangeWithMeta(from, to, 100); err != nil {
+		t.Fatalf("QueryRangeWithMeta: %v", err)
+	}
+
+	store.queryCacheMu.Lock()
+	populated := len(store.queryCache)
+	store.queryCacheMu.Unlock()
+	if populated == 0 {
+		t.Fatal("expected past-window query to be cached")
+	}
+
+	// A later write at the live edge must not evict the past-window entry.
+	if err := store.WriteSample(makeSampleWithCPU(base.Add(10*time.Second), 99.0)); err != nil {
+		t.Fatalf("WriteSample (live edge): %v", err)
+	}
+
+	store.queryCacheMu.Lock()
+	retained := len(store.queryCache)
+	store.queryCacheMu.Unlock()
+	if retained == 0 {
+		t.Error("past-window cache entry should survive a write to the live edge")
 	}
 }
 
@@ -1195,4 +1238,3 @@ func TestWrappedTierRecentQueryCorrect(t *testing.T) {
 		}
 	}
 }
-

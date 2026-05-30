@@ -9,6 +9,10 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [0.17.3] - TBA
 
+### Changed
+
+- Performance: query-cache entries expire by TTL instead of a full per-second rebuild
+
 ### Security
 
 - Cap rate-limiter memory to prevent unbounded growth from distinct-IP floods
