@@ -1,0 +1,148 @@
+# Snap package for Kula — built from source with the `go` plugin.
+#
+# ─── Confinement model (read this before changing anything) ────────────────
+# Kula is a whole-system monitor, so it needs to read system-wide /proc, /sys
+# and the network stack. Under STRICT confinement that access is granted by
+# the interfaces plugged below. The important consequences:
+#
+#   * `network` / `network-bind` auto-connect on install. Everything else
+#     (system-observe, hardware-observe, mount-observe, network-observe,
+#     docker) must be connected manually after install — see README.md, or:
+#         sudo snap connect kula:system-observe
+#         sudo snap connect kula:hardware-observe
+#         sudo snap connect kula:mount-observe
+#         sudo snap connect kula:network-observe
+#         sudo snap connect kula:docker        # optional: Docker collector
+#   * Storage cannot live in /var/lib/kula (not writable for a strict snap).
+#     The launcher points KULA_DIRECTORY at $SNAP_COMMON/data instead.
+#   * Kula's own Landlock sandbox is a no-op here: snapd's seccomp filter
+#     already bounds the process, so sandbox.Enforce just logs a warning and
+#     carries on (it is non-fatal by design).
+#   * Known strict-mode gaps vs. the deb/rpm: podman and unix-socket DBs are
+#     blocked (use TCP host/port for MySQL/Postgres), nvidia-smi GPU probing
+#     and `du`-style usage on user home mounts won't work. Use the classic
+#     deb/rpm/tarball if you need full parity.
+name: kula
+title: Kula
+adopt-info: kula
+summary: Lightweight, self-contained Linux server monitoring tool
+description: |
+  Kula is a lightweight, single-binary Linux server monitor. It collects
+  system metrics every second straight from /proc and /sys, stores them in a
+  built-in tiered ring-buffer engine, and serves them over a real-time web UI
+  dashboard and a terminal TUI. Zero external dependencies, no external
+  database — just install and go.
+
+  Collected metrics include CPU, GPU, load, memory, swap, network, disk I/O
+  and usage, thermals, battery, processes, containers (Docker/podman/cgroups)
+  and application probes (PostgreSQL, MySQL/MariaDB, nginx, apache2).
+
+  This snap uses STRICT confinement. After installing, connect the
+  observation interfaces so Kula can read system-wide metrics:
+
+      sudo snap connect kula:system-observe
+      sudo snap connect kula:hardware-observe
+      sudo snap connect kula:mount-observe
+      sudo snap connect kula:network-observe
+      sudo snap connect kula:docker        # optional: Docker collector
+
+  The daemon starts automatically and listens on http://localhost:27960 by
+  default. Edit /var/snap/kula/current/config.yaml and run
+  `sudo snap restart kula.daemon` to apply changes.
+
+license: AGPL-3.0-only
+website: https://kula.ovh
+source-code: https://github.com/c0m4r/kula
+issues: https://github.com/c0m4r/kula/issues
+contact: https://github.com/c0m4r/kula/issues
+donation: https://junglekeepers.org/donate
+
+base: core24
+grade: stable
+confinement: strict
+
+# Each target can be built on any of the three host arches: kula is a pure-Go
+# static binary with no stage-packages, so snapcraft builds in a host-arch
+# instance and the go plugin cross-compiles to build-for (override-build sets
+# GOARCH from CRAFT_ARCH_BUILD_FOR). No qemu/emulation involved. Because every
+# platform lists the host in build-on, always select one explicitly with
+# `snapcraft pack --platform <arch>` (addons/build_snap.sh does this) so a bare
+# `snapcraft pack` doesn't try to build all three at once.
+platforms:
+  amd64:
+    build-on: [amd64, arm64, riscv64]
+    build-for: [amd64]
+  arm64:
+    build-on: [amd64, arm64, riscv64]
+    build-for: [arm64]
+  riscv64:
+    build-on: [amd64, arm64, riscv64]
+    build-for: [riscv64]
+
+apps:
+  # Background daemon. Starts/enables on install and runs `kula serve` against
+  # the snap-managed config ($SNAP_DATA/config.yaml) and writable data dir
+  # ($SNAP_COMMON/data). Runs as root under strict confinement — the
+  # AppArmor/seccomp sandbox plus the connected interfaces are what bound it.
+  daemon:
+    command: bin/launch serve
+    daemon: simple
+    install-mode: enable
+    restart-condition: on-failure
+    restart-delay: 5s
+    plugs:
+      - network
+      - network-bind
+      - system-observe
+      - hardware-observe
+      - mount-observe
+      - network-observe
+      - docker
+
+  # CLI entry point: `kula --version`, `sudo kula tui`, `sudo kula inspect`,
+  # `sudo kula hash-password`. Reads the same config/data as the daemon, so
+  # the storage-touching subcommands generally need root (sudo).
+  kula:
+    command: bin/launch
+    plugs:
+      - network
+      - network-bind
+      - system-observe
+      - hardware-observe
+      - mount-observe
+      - network-observe
+      - docker
+
+parts:
+  kula:
+    plugin: go
+    source: .
+    # Track the newest stable Go. go.mod pins `go 1.26.3`, so Go's default
+    # GOTOOLCHAIN will transparently fetch that exact toolchain at build time
+    # if the snap ships an older one.
+    build-snaps:
+      - go/latest/stable
+    build-environment:
+      - CGO_ENABLED: "0"
+    override-build: |
+      # Mirror the flags from addons/build.sh. Debian arch names
+      # (amd64/arm64/riscv64) map 1:1 to Go's GOARCH, so cross-builds for the
+      # target platform just work.
+      GOOS=linux GOARCH="${CRAFT_ARCH_BUILD_FOR}" \
+        go build -trimpath -ldflags="-s -w" -buildvcs=false \
+        -o "${CRAFT_PART_INSTALL}/bin/kula" ./cmd/kula/
+      install -D -m 0644 config.example.yaml \
+        "${CRAFT_PART_INSTALL}/etc/kula/config.example.yaml"
+      craftctl set version="$(cat VERSION)"
+
+  # Runtime launcher shared by both apps: seeds the config on first run and
+  # redirects storage to a snap-writable location.
+  launcher:
+    plugin: dump
+    source: snap/local
+    organize:
+      launch: bin/launch
+    stage:
+      - bin/launch
+    prime:
+      - bin/launch

@@ -441,3 +441,37 @@ func TestExecuteGetMetrics_InvalidArgs(t *testing.T) {
 		t.Errorf("expected invalid-args error, got %q", out)
 	}
 }
+
+func TestChatRateLimiterCapsDistinctKeys(t *testing.T) {
+	rl := &chatRateLimiter{limit: ollamaChatRateLimit, requests: make(map[string][]time.Time)}
+
+	for i := 0; i < maxRateLimiterKeys; i++ {
+		if !rl.Allow(fmt.Sprintf("ip-%d", i)) {
+			t.Fatalf("key %d should be allowed while under the cap", i)
+		}
+	}
+
+	// Saturated with fresh entries: a new IP is rejected so the map cannot grow
+	// without bound (this limiter was previously never purged).
+	if rl.Allow("overflow-ip") {
+		t.Fatal("new key should be denied when the chat limiter is saturated")
+	}
+	if len(rl.requests) > maxRateLimiterKeys {
+		t.Fatalf("map grew past cap: got %d keys, want <= %d", len(rl.requests), maxRateLimiterKeys)
+	}
+}
+
+func TestChatRateLimiterPurgeStaleReclaims(t *testing.T) {
+	rl := newChatRateLimiter()
+	rl.requests["old-ip"] = []time.Time{time.Now().Add(-2 * time.Minute)}
+	rl.requests["fresh-ip"] = []time.Time{time.Now()}
+
+	rl.purgeStale()
+
+	if _, ok := rl.requests["old-ip"]; ok {
+		t.Error("stale entry should have been purged")
+	}
+	if _, ok := rl.requests["fresh-ip"]; !ok {
+		t.Error("fresh entry should have been retained")
+	}
+}

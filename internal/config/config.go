@@ -57,28 +57,28 @@ type TierConfig struct {
 }
 
 type WebConfig struct {
-	Enabled            bool        `yaml:"enabled"`
-	UI                 bool        `yaml:"ui"`
-	Listen             string      `yaml:"listen"`
-	Port               int         `yaml:"port"`
-	UnixSocket         string      `yaml:"unix_socket"`      // if set, listen on this Unix socket and do not bind TCP
-	UnixSocketMode     string      `yaml:"unix_socket_mode"` // octal permissions for the socket file (default "0660")
-	Auth               AuthConfig  `yaml:"auth"`
-	PrometheusMetrics  MetricsConfig `yaml:"prometheus_metrics"`
-	JoinMetrics        bool        `yaml:"join_metrics"`
-	DefaultAggregation string      `yaml:"default_aggregation"`
-	Logging            LogConfig   `yaml:"logging"`
-	TrustProxy         bool        `yaml:"trust_proxy"`
-	EnableCompression  bool        `yaml:"enable_compression"`
-	Graphs             GraphConfig `yaml:"graphs"`
-	Lang               LangConfig  `yaml:"lang"`
-	Version            string      `yaml:"-"` // injected at runtime, not from config file
-	OS                 string      `yaml:"-"`
-	Kernel             string      `yaml:"-"`
-	Arch               string      `yaml:"-"`
-	MaxWebsocketConns  int         `yaml:"max_websocket_conns"`
-	MaxWebsocketConnsPerIP int         `yaml:"max_websocket_conns_per_ip"`
-	Security           SecurityConfig `yaml:"security"`
+	Enabled                bool           `yaml:"enabled"`
+	UI                     bool           `yaml:"ui"`
+	Listen                 string         `yaml:"listen"`
+	Port                   int            `yaml:"port"`
+	UnixSocket             string         `yaml:"unix_socket"`      // if set, listen on this Unix socket and do not bind TCP
+	UnixSocketMode         string         `yaml:"unix_socket_mode"` // octal permissions for the socket file (default "0660")
+	Auth                   AuthConfig     `yaml:"auth"`
+	PrometheusMetrics      MetricsConfig  `yaml:"prometheus_metrics"`
+	JoinMetrics            bool           `yaml:"join_metrics"`
+	DefaultAggregation     string         `yaml:"default_aggregation"`
+	Logging                LogConfig      `yaml:"logging"`
+	TrustProxy             bool           `yaml:"trust_proxy"`
+	EnableCompression      bool           `yaml:"enable_compression"`
+	Graphs                 GraphConfig    `yaml:"graphs"`
+	Lang                   LangConfig     `yaml:"lang"`
+	Version                string         `yaml:"-"` // injected at runtime, not from config file
+	OS                     string         `yaml:"-"`
+	Kernel                 string         `yaml:"-"`
+	Arch                   string         `yaml:"-"`
+	MaxWebsocketConns      int            `yaml:"max_websocket_conns"`
+	MaxWebsocketConnsPerIP int            `yaml:"max_websocket_conns_per_ip"`
+	Security               SecurityConfig `yaml:"security"`
 	// BasePath mounts every HTTP route (UI, API, WebSocket, /metrics, /health)
 	// under this URL sub-path, e.g. "/kula". Empty (default) serves at the
 	// root unchanged. Normalized at load time: leading slash enforced, trailing
@@ -185,11 +185,11 @@ type OllamaConfig struct {
 
 // ApplicationsConfig groups monitoring modules for external applications.
 type ApplicationsConfig struct {
-	Nginx      NginxConfig                    `yaml:"nginx"`
-	Apache2    Apache2Config                  `yaml:"apache2"`
-	Containers ContainersConfig               `yaml:"containers"`
-	Postgres   PostgresConfig                 `yaml:"postgres"`
-	Mysql      MysqlConfig                    `yaml:"mysql"`
+	Nginx      NginxConfig                     `yaml:"nginx"`
+	Apache2    Apache2Config                   `yaml:"apache2"`
+	Containers ContainersConfig                `yaml:"containers"`
+	Postgres   PostgresConfig                  `yaml:"postgres"`
+	Mysql      MysqlConfig                     `yaml:"mysql"`
 	Custom     map[string][]CustomMetricConfig `yaml:"custom"`
 }
 
@@ -286,12 +286,12 @@ func DefaultConfig() *Config {
 			},
 		},
 		Web: WebConfig{
-			Enabled:            true,
-			UI:                 true,
-			Listen:             "",
-			Port:               27960,
-			UnixSocket:         "",
-			UnixSocketMode:     "0660",
+			Enabled:        true,
+			UI:             true,
+			Listen:         "",
+			Port:           27960,
+			UnixSocket:     "",
+			UnixSocketMode: "0660",
 			PrometheusMetrics: MetricsConfig{
 				Enabled: false,
 			},
@@ -311,7 +311,7 @@ func DefaultConfig() *Config {
 			},
 			EnableCompression: true,
 			Graphs: GraphConfig{
-				CPUTemp:  GraphMaxConfig{MaxMode: "off", MaxValue: 100},  // 100 Celsius
+				CPUTemp:  GraphMaxConfig{MaxMode: "off", MaxValue: 100}, // 100 Celsius
 				DiskTemp: GraphMaxConfig{MaxMode: "off", MaxValue: 100},
 				GPUTemp:  GraphMaxConfig{MaxMode: "off", MaxValue: 100},
 				Network:  GraphMaxConfig{MaxMode: "off", MaxValue: 1000}, // 1000 Mbps
@@ -350,11 +350,11 @@ func DefaultConfig() *Config {
 				SSLMode: "disable",
 			},
 			Mysql: MysqlConfig{
-				Enabled:  false,
-				Host:     "localhost",
-				Port:     3306,
-				User:     "kula_monitor",
-				DBName:   "",
+				Enabled: false,
+				Host:    "localhost",
+				Port:    3306,
+				User:    "kula_monitor",
+				DBName:  "",
 			},
 		},
 		TUI: TUIConfig{

@@ -159,9 +159,9 @@ rm -f ${KULA_INSTALL}
 ### Standalone
 
 ```bash
-wget https://github.com/c0m4r/kula/releases/download/0.17.1/kula-0.17.1-amd64.tar.gz
-echo "aed5c70a9eb98f2bd88b8ffa4d336e065c88ac457567a10e6d93045a23de4e0d kula-0.17.1-amd64.tar.gz" | sha256sum -c || rm -f kula-0.17.1-amd64.tar.gz
-tar -xvf kula-0.17.1-amd64.tar.gz
+wget https://github.com/c0m4r/kula/releases/download/0.17.2/kula-0.17.2-amd64.tar.gz
+echo "804b96337c4970f23f081620b804d0ff81a516c64f5b5c71e2fe2a68b2dab35a kula-0.17.2-amd64.tar.gz" | sha256sum -c || rm -f kula-0.17.2-amd64.tar.gz
+tar -xvf kula-0.17.2-amd64.tar.gz
 cd kula
 ./kula
 ```
@@ -184,18 +184,18 @@ docker logs -f kula
 ### Debian / Ubuntu (.deb)
 
 ```bash
-wget https://github.com/c0m4r/kula/releases/download/0.17.1/kula-0.17.1-amd64.deb
-echo "063ba69f543f5b7248f2f5d75372910a6a359f355917d8288ddb057192e014f9 kula-0.17.1-amd64.deb" | sha256sum -c || rm -f kula-0.17.1-amd64.deb
-sudo dpkg -i kula-0.17.1-amd64.deb
+wget https://github.com/c0m4r/kula/releases/download/0.17.2/kula-0.17.2-amd64.deb
+echo "72775325e178d85e2dd4ff967327559e3f7f8d0275f2db9c7c19f46c7410b175 kula-0.17.2-amd64.deb" | sha256sum -c || rm -f kula-0.17.2-amd64.deb
+sudo dpkg -i kula-0.17.2-amd64.deb
 journalctl -f -t kula
 ```
 
 ### RHEL / Fedora / CentOS / Rocky / Alma (.rpm)
 
 ```bash
-wget https://github.com/c0m4r/kula/releases/download/0.17.1/kula-0.17.1-x86_64.rpm
-echo "5d02506dac159001a3178503b5a0f276a79163cbb983ee5fe9c88bd50521f00a kula-0.17.1-x86_64.rpm" | sha256sum -c || rm -f kula-0.17.1-x86_64.rpm
-sudo rpm -i kula-0.17.1-x86_64.rpm
+wget https://github.com/c0m4r/kula/releases/download/0.17.2/kula-0.17.2-x86_64.rpm
+echo "e311125504a77419f4832fa75e954dac6b8f7b1e932818f80d30bc3223b4a20f kula-0.17.2-x86_64.rpm" | sha256sum -c || rm -f kula-0.17.2-x86_64.rpm
+sudo rpm -i kula-0.17.2-x86_64.rpm
 journalctl -f -t kula
 ```
 
@@ -208,6 +208,16 @@ git clone https://aur.archlinux.org/kula.git
 cd kula
 makepkg -si
 ```
+
+### Snap
+
+```bash
+sudo snap install kula
+```
+
+The snap uses **strict sandbox** so by default Kula features will be limited to the basics, which can be extended with snap connect.
+
+See [Snap Wiki](https://github.com/c0m4r/kula/wiki/Snap) for the full guide.
 
 ### Build from Source
 
@@ -381,6 +391,20 @@ ls -1 dist/kula-*.rpm
 ```bash
 ./addons/docker/build.sh
 docker compose -f addons/docker/docker-compose.yml up -d
+```
+
+### Snap
+
+Requires [snapcraft](https://documentation.ubuntu.com/snapcraft/stable/howto/setup/)
+and a build backend (LXD recommended):
+
+```bash
+snap install snapcraft --classic
+snap install lxd
+lxd init --auto
+./addons/build_snap.sh            # host arch, into dist/
+./addons/build_snap.sh cross      # cross-build amd64/arm64/riscv64 locally
+ls -1 dist/kula-*.snap
 ```
 
 ---

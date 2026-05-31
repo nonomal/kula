@@ -179,4 +179,3 @@ func (c *Collector) collectGPUs(elapsed float64) []GPUStats {
 	}
 	return stats
 }
-

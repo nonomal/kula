@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
+## [0.17.3] - TBA
+
+### Added
+
+- fuzz and runtime security tests
+- kula-scan: active black-box safeguard scanner
+
+### Changed
+
+- Performance: query-cache entries expire by TTL instead of a full per-second rebuild
+
+### Fixed
+
+- Out-of-bounds panic decoding truncated or corrupt storage records
+
+### Security
+
+- Cap rate-limiter memory to prevent unbounded growth from distinct-IP floods
+- Fix Login timing side-channel / username enumeration
+- Fix out-of-bounds panic in the process collector
+
+## [0.17.2] - 2026-05-30
+
+### Changed
+
+- Performance: ~60% fewer allocations and syscalls in the per-second process collector
+- Performance: skip the WebSocket sample marshal when no clients are connected
+- Performance: stop parsing /proc/stat once past the CPU block
+
 ## [0.17.1] - 2026-05-29
 
 ### Added

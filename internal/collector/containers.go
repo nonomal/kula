@@ -20,20 +20,20 @@ import (
 
 // containerDiscoveryMode describes how containers were discovered.
 const (
-	containerModeSocket  = "socket"  // via Docker/Podman API socket
-	containerModeCgroup  = "cgroups" // fallback: cgroups-based discovery
-	containerModeNone    = "none"    // no containers found / not available
+	containerModeSocket = "socket"  // via Docker/Podman API socket
+	containerModeCgroup = "cgroups" // fallback: cgroups-based discovery
+	containerModeNone   = "none"    // no containers found / not available
 )
 
 // containerCollector runs async container discovery and metric collection.
 type containerCollector struct {
-	mu       sync.RWMutex
-	cfg      ContainersCollectorConfig
-	latest   []ContainerStats
-	mode     string // one of containerMode* constants
-	prevCPU  map[string]containerCPURaw
-	prevNet  map[string]containerNetRaw
-	prevDisk map[string]containerDiskRaw
+	mu        sync.RWMutex
+	cfg       ContainersCollectorConfig
+	latest    []ContainerStats
+	mode      string // one of containerMode* constants
+	prevCPU   map[string]containerCPURaw
+	prevNet   map[string]containerNetRaw
+	prevDisk  map[string]containerDiskRaw
 	prevTime  time.Time
 	client    *http.Client
 	socket    string // resolved socket path

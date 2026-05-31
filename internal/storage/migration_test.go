@@ -27,11 +27,11 @@ func TestTierMigration_JSONToBinary(t *testing.T) {
 	copy(header[0:4], magicString)
 	binary.LittleEndian.PutUint64(header[8:16], 1) // codecVer = 1
 	binary.LittleEndian.PutUint64(header[16:24], uint64(maxData))
-	
+
 	// Prepare some sample data
 	ts1 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
 	ts2 := time.Date(2026, 1, 1, 10, 0, 1, 0, time.UTC)
-	
+
 	s1 := &AggregatedSample{
 		Timestamp: ts1,
 		Duration:  time.Second,

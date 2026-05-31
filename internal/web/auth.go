@@ -39,6 +39,31 @@ type RateLimiter struct {
 	attempts map[string][]time.Time
 }
 
+// maxRateLimiterKeys bounds how many distinct keys (client IPs or usernames) a
+// rate limiter tracks at once. It sits far above any legitimate concurrent client
+// count for a self-hosted monitor but caps memory if an attacker sprays requests
+// from many source addresses. On reaching the cap the limiter purges stale entries
+// and, if still saturated with fresh ones, refuses new keys (fail-closed).
+const maxRateLimiterKeys = 16384
+
+// reserveRateLimiterKey reports whether key may be tracked in m without growing it
+// past maxRateLimiterKeys. Already-tracked keys are always admitted. A new key is
+// admitted while there is headroom; once the map is full, purge is run to reclaim
+// stale entries and the key is admitted only if that frees space. The caller must
+// hold the limiter's lock, and purge must operate under that same held lock.
+func reserveRateLimiterKey(m map[string][]time.Time, key string, purge func()) bool {
+	if _, tracked := m[key]; tracked {
+		return true
+	}
+	if len(m) >= maxRateLimiterKeys {
+		purge()
+		if len(m) >= maxRateLimiterKeys {
+			return false
+		}
+	}
+	return true
+}
+
 type session struct {
 	username  string
 	csrfToken string
@@ -98,6 +123,10 @@ func (rl *RateLimiter) Allow(ip string) bool {
 	now := time.Now()
 	cutoff := now.Add(-5 * time.Minute)
 
+	if !reserveRateLimiterKey(rl.attempts, ip, func() { rl.purge(cutoff) }) {
+		return false
+	}
+
 	var recent []time.Time
 	for _, t := range rl.attempts[ip] {
 		if t.After(cutoff) {
@@ -136,7 +165,25 @@ func GenerateSalt() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// dummySalt and dummyHash back the constant-time fallback in
+// ValidateCredentials. When the supplied username matches no configured user,
+// a throwaway Argon2id hash is still computed and compared against these fixed
+// values so that an unknown username costs the same wall-clock time as a known
+// one. This closes a user-enumeration timing oracle. The values are arbitrary
+// constants; the comparison they feed is always expected to fail. dummyHash is
+// 64 hex chars to match the length of a real HashPassword result so the
+// constant-time compare runs over equal-length inputs.
+const (
+	dummySalt = "0000000000000000000000000000000000000000000000000000000000000000"
+	dummyHash = "0000000000000000000000000000000000000000000000000000000000000000"
+)
+
 // ValidateCredentials checks username and password against config.
+//
+// Exactly one Argon2id computation is performed on every call regardless of
+// whether the username exists: a non-matching username falls through to a
+// throwaway hash over dummySalt so the response time does not reveal which
+// usernames are valid (enumeration timing side channel).
 func (a *AuthManager) ValidateCredentials(username, password string) bool {
 	if !a.cfg.Enabled {
 		return true
@@ -154,6 +201,13 @@ func (a *AuthManager) ValidateCredentials(username, password string) bool {
 		}
 	}
 
+	// No username matched. Perform a throwaway Argon2id computation with the
+	// same parameters (and a constant-time compare) so an unknown username
+	// costs the same time as a known one. Without this, the early return here
+	// would make unknown usernames resolve ~1000x faster than known ones,
+	// leaking which usernames exist.
+	dummy := HashPassword(password, dummySalt, a.cfg.Argon2)
+	_ = subtle.ConstantTimeCompare([]byte(dummy), []byte(dummyHash))
 	return false
 }
 

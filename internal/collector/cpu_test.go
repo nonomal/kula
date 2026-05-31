@@ -2,6 +2,8 @@ package collector
 
 import (
 	"kula/internal/config"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -19,6 +21,38 @@ func TestParseProcStat(t *testing.T) {
 	}
 	if raw[1].id != "cpu0" || raw[1].user != 1000 {
 		t.Errorf("unexpected cpu0 stats: %+v", raw[1])
+	}
+}
+
+// TestParseProcStatStopsAfterCPUBlock verifies the early-break: CPU lines form
+// a contiguous block at the top of /proc/stat, so parsing must stop at the
+// first non-cpu line and never tokenise the large intr/softirq counters that
+// follow. The trailing "cpu_bogus" line — placed AFTER intr — must NOT appear
+// in the result; if it did, the loop kept scanning past the block.
+func TestParseProcStatStopsAfterCPUBlock(t *testing.T) {
+	dir := t.TempDir()
+	stat := "cpu  2000 0 1000 50000 200 100 50 0 0 0\n" +
+		"cpu0 1000 0 500 25000 100 50 25 0 0 0\n" +
+		"cpu1 1000 0 500 25000 100 50 25 0 0 0\n" +
+		"intr 1234567 1 2 3 4 5 6 7 8 9 10\n" +
+		"ctxt 9876543\n" +
+		"softirq 5000000 1 2 3 4 5 6 7 8 9 10\n" +
+		"cpu_bogus 999 0 0 0 0 0 0 0 0 0\n"
+	if err := os.WriteFile(filepath.Join(dir, "stat"), []byte(stat), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	orig := procPath
+	procPath = dir
+	defer func() { procPath = orig }()
+
+	c := New(config.GlobalConfig{}, config.CollectionConfig{}, config.ApplicationsConfig{}, "")
+	raw := c.parseProcStat()
+	if len(raw) != 3 {
+		t.Fatalf("expected 3 CPU records (cpu, cpu0, cpu1), got %d: %+v", len(raw), raw)
+	}
+	if raw[0].id != "cpu" || raw[0].user != 2000 {
+		t.Errorf("unexpected aggregate record: %+v", raw[0])
 	}
 }
 

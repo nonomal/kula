@@ -350,16 +350,16 @@ func TestMysqlCollectorMath(t *testing.T) {
 	}
 
 	cur := mysqlRaw{
-		questions:        200,    // +100 over 10s → 10 q/s
-		comSelect:        100,    // +50  → 5 select/s
-		comInsert:        20,     // +10  → 1 insert/s
-		comUpdate:        10,     // +5   → 0.5 update/s
-		comDelete:        4,      // +2   → 0.2 delete/s
-		slowQueries:      3,      // +2   → 0.2 slow/s
-		innodbBPReads:    30,     // +10  → 1 bp_reads/s
-		innodbBPRequests: 1030,   // 1000 hits + 30 reads → 97.09% hit ratio
-		tableLocksWaited: 8,      // +5   → 0.5/s
-		rowLockWaits:     9,      // +5   → 0.5/s
+		questions:        200,  // +100 over 10s → 10 q/s
+		comSelect:        100,  // +50  → 5 select/s
+		comInsert:        20,   // +10  → 1 insert/s
+		comUpdate:        10,   // +5   → 0.5 update/s
+		comDelete:        4,    // +2   → 0.2 delete/s
+		slowQueries:      3,    // +2   → 0.2 slow/s
+		innodbBPReads:    30,   // +10  → 1 bp_reads/s
+		innodbBPRequests: 1030, // 1000 hits + 30 reads → 97.09% hit ratio
+		tableLocksWaited: 8,    // +5   → 0.5/s
+		rowLockWaits:     9,    // +5   → 0.5/s
 	}
 
 	stats := &MysqlStats{}
@@ -458,7 +458,7 @@ func TestCustomCollector(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to connect to socket: %v", err)
 	}
-	
+
 	msg := map[string]any{
 		"custom": map[string]any{
 			"fans": []map[string]any{

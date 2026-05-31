@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	// nosemgrep: math-random-used -- dev-only mock data generator; no security relevance
 	"math/rand"
 	"os"
 	"strings"

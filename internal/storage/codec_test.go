@@ -263,18 +263,18 @@ func TestDecodePostgresV1Block(t *testing.T) {
 
 	// Add postgres data in the v1 layout and encode normally to get variable bytes.
 	sample.Data.Apps.Postgres = &collector.PostgresStats{
-		ActiveConns:  5,
-		IdleConns:    10,
-		MaxConns:     100,
-		TxCommitPS:   42.5,
-		TxRollbackPS: 0.3,
-		TupFetchedPS: 100.0,
+		ActiveConns:   5,
+		IdleConns:     10,
+		MaxConns:      100,
+		TxCommitPS:    42.5,
+		TxRollbackPS:  0.3,
+		TupFetchedPS:  100.0,
 		TupInsertedPS: 10.0,
-		TupUpdatedPS: 5.0,
-		TupDeletedPS: 1.0,
-		BlksHitPct:   99.5,
-		DeadTuples:   500,
-		DBSizeBytes:  1024 * 1024 * 1024,
+		TupUpdatedPS:  5.0,
+		TupDeletedPS:  1.0,
+		BlksHitPct:    99.5,
+		DeadTuples:    500,
+		DBSizeBytes:   1024 * 1024 * 1024,
 	}
 	varBuf, err := appendVariable(nil, sample.Data)
 	if err != nil {
@@ -310,22 +310,22 @@ func TestDecodePostgresV1Block(t *testing.T) {
 	// because appendVariable always writes it. We decode with hasApache2=true
 	// so the decoder matches the encoder layout.
 	var v1Var []byte
-	v1Var = append(v1Var, varBuf[:pgOff]...)  // up to postgres presence (includes Apache2 byte)
-	v1Var = append(v1Var, 1)                   // v1 presence tag
+	v1Var = append(v1Var, varBuf[:pgOff]...) // up to postgres presence (includes Apache2 byte)
+	v1Var = append(v1Var, 1)                 // v1 presence tag
 	// 56-byte v1 block: 3×int32 + 7×float32 + 2×int64
 	var pb [56]byte
-	binary.LittleEndian.PutUint32(pb[0:], uint32(int32(5)))    // ActiveConns
-	binary.LittleEndian.PutUint32(pb[4:], uint32(int32(10)))   // IdleConns
-	binary.LittleEndian.PutUint32(pb[8:], uint32(int32(100)))  // MaxConns
-	putF32(pb[12:], 42.5)   // TxCommitPS
-	putF32(pb[16:], 0.3)    // TxRollbackPS
-	putF32(pb[20:], 100.0)  // TupFetchedPS
-	putF32(pb[24:], 10.0)   // TupInsertedPS
-	putF32(pb[28:], 5.0)    // TupUpdatedPS
-	putF32(pb[32:], 1.0)    // TupDeletedPS
-	putF32(pb[36:], 99.5)   // BlksHitPct
-	binary.LittleEndian.PutUint64(pb[40:], uint64(500))                // DeadTuples
-	binary.LittleEndian.PutUint64(pb[48:], uint64(1024*1024*1024))     // DBSizeBytes
+	binary.LittleEndian.PutUint32(pb[0:], uint32(int32(5)))        // ActiveConns
+	binary.LittleEndian.PutUint32(pb[4:], uint32(int32(10)))       // IdleConns
+	binary.LittleEndian.PutUint32(pb[8:], uint32(int32(100)))      // MaxConns
+	putF32(pb[12:], 42.5)                                          // TxCommitPS
+	putF32(pb[16:], 0.3)                                           // TxRollbackPS
+	putF32(pb[20:], 100.0)                                         // TupFetchedPS
+	putF32(pb[24:], 10.0)                                          // TupInsertedPS
+	putF32(pb[28:], 5.0)                                           // TupUpdatedPS
+	putF32(pb[32:], 1.0)                                           // TupDeletedPS
+	putF32(pb[36:], 99.5)                                          // BlksHitPct
+	binary.LittleEndian.PutUint64(pb[40:], uint64(500))            // DeadTuples
+	binary.LittleEndian.PutUint64(pb[48:], uint64(1024*1024*1024)) // DBSizeBytes
 	v1Var = append(v1Var, pb[:]...)
 	// Custom metrics section (empty): from after v2 postgres block to end
 	v1Var = append(v1Var, varBuf[pgOff+1+104:]...) // skip v2 presence+block, keep rest
@@ -367,20 +367,20 @@ func TestDecodeMysqlV1Block(t *testing.T) {
 
 	// Add MySQL data so appendVariable writes the MySQL section.
 	sample.Data.Apps.Mysql = &collector.MysqlStats{
-		ThreadsConnected:        5,
-		ThreadsRunning:          2,
-		ThreadsCached:           3,
-		MaxConnections:          151,
-		QueriesPS:               42.5,
-		ComSelectPS:             20.0,
-		ComInsertPS:             5.0,
-		ComUpdatePS:             3.0,
-		ComDeletePS:             1.0,
-		SlowQueriesPS:           0.5,
-		InnodbBufferPoolHitPct:  98.7,
-		InnodbBPReadsPS:         0.3,
-		TableLocksWaitedPS:      0.1,
-		RowLockWaitsPS:          0.2,
+		ThreadsConnected:       5,
+		ThreadsRunning:         2,
+		ThreadsCached:          3,
+		MaxConnections:         151,
+		QueriesPS:              42.5,
+		ComSelectPS:            20.0,
+		ComInsertPS:            5.0,
+		ComUpdatePS:            3.0,
+		ComDeletePS:            1.0,
+		SlowQueriesPS:          0.5,
+		InnodbBufferPoolHitPct: 98.7,
+		InnodbBPReadsPS:        0.3,
+		TableLocksWaitedPS:     0.1,
+		RowLockWaitsPS:         0.2,
 	}
 
 	// Encode normally — this writes the corrected 56-byte v1 block.
@@ -472,24 +472,24 @@ func TestDecodeApache2V1Block(t *testing.T) {
 	// everything up to Apache2 presence + presence=1 + 72 bytes of v1 data + custom section.
 	var v1Var []byte
 	v1Var = append(v1Var, varBuf[:apOff]...) // up to apache2 presence
-	v1Var = append(v1Var, 1)                  // v1 presence tag
+	v1Var = append(v1Var, 1)                 // v1 presence tag
 	// 72-byte v1 block: 2×int32 + 2×uint64 + 6×float32 + 1×int64 + 4×int32
 	var ab [72]byte
-	binary.LittleEndian.PutUint32(ab[0:], uint32(int32(3)))   // BusyWorkers
-	binary.LittleEndian.PutUint32(ab[4:], uint32(int32(7)))   // IdleWorkers
-	binary.LittleEndian.PutUint64(ab[8:], 1234)               // TotalAccesses
-	binary.LittleEndian.PutUint64(ab[16:], 5678)              // TotalKBytes
-	putF32(ab[24:], 2.5)                                       // AccessesPS
-	putF32(ab[28:], 10.0)                                      // KBytesPS
-	putF32(ab[32:], 2.5)                                       // ReqPerSec
-	putF32(ab[36:], 8192)                                      // BytesPerSec
-	putF32(ab[40:], 3276)                                      // BytesPerReq
-	putF32(ab[44:], 0.12)                                      // CPULoad
-	binary.LittleEndian.PutUint64(ab[48:], uint64(12345))     // Uptime
-	binary.LittleEndian.PutUint32(ab[56:], uint32(int32(5)))  // Waiting
-	binary.LittleEndian.PutUint32(ab[60:], uint32(int32(2)))  // Reading
-	binary.LittleEndian.PutUint32(ab[64:], uint32(int32(1)))  // Sending
-	binary.LittleEndian.PutUint32(ab[68:], uint32(int32(0)))  // Keepalive
+	binary.LittleEndian.PutUint32(ab[0:], uint32(int32(3)))  // BusyWorkers
+	binary.LittleEndian.PutUint32(ab[4:], uint32(int32(7)))  // IdleWorkers
+	binary.LittleEndian.PutUint64(ab[8:], 1234)              // TotalAccesses
+	binary.LittleEndian.PutUint64(ab[16:], 5678)             // TotalKBytes
+	putF32(ab[24:], 2.5)                                     // AccessesPS
+	putF32(ab[28:], 10.0)                                    // KBytesPS
+	putF32(ab[32:], 2.5)                                     // ReqPerSec
+	putF32(ab[36:], 8192)                                    // BytesPerSec
+	putF32(ab[40:], 3276)                                    // BytesPerReq
+	putF32(ab[44:], 0.12)                                    // CPULoad
+	binary.LittleEndian.PutUint64(ab[48:], uint64(12345))    // Uptime
+	binary.LittleEndian.PutUint32(ab[56:], uint32(int32(5))) // Waiting
+	binary.LittleEndian.PutUint32(ab[60:], uint32(int32(2))) // Reading
+	binary.LittleEndian.PutUint32(ab[64:], uint32(int32(1))) // Sending
+	binary.LittleEndian.PutUint32(ab[68:], uint32(int32(0))) // Keepalive
 	v1Var = append(v1Var, ab[:]...)
 	// Custom section: from after the v2 apache2 block (presence=2 + 100 bytes).
 	v1Var = append(v1Var, varBuf[apOff+1+100:]...)
@@ -783,28 +783,28 @@ func TestDecodePostgresV2Block(t *testing.T) {
 	sample := makeSampleFull(now)
 
 	sample.Data.Apps.Postgres = &collector.PostgresStats{
-		ActiveConns:    5,
-		IdleConns:      10,
-		IdleInTxConns:  1,
-		WaitingConns:   2,
-		MaxConns:       100,
-		TxCommitPS:     42.5,
-		TxRollbackPS:   0.3,
-		TupFetchedPS:   100.0,
-		TupReturnedPS:  200.0,
-		TupInsertedPS:  10.0,
-		TupUpdatedPS:   5.0,
-		TupDeletedPS:   1.0,
-		BlksReadPS:     0.4,
-		BlksHitPS:      99.6,
-		BlksHitPct:     99.5,
-		DeadlocksPS:    0.0,
+		ActiveConns:     5,
+		IdleConns:       10,
+		IdleInTxConns:   1,
+		WaitingConns:    2,
+		MaxConns:        100,
+		TxCommitPS:      42.5,
+		TxRollbackPS:    0.3,
+		TupFetchedPS:    100.0,
+		TupReturnedPS:   200.0,
+		TupInsertedPS:   10.0,
+		TupUpdatedPS:    5.0,
+		TupDeletedPS:    1.0,
+		BlksReadPS:      0.4,
+		BlksHitPS:       99.6,
+		BlksHitPct:      99.5,
+		DeadlocksPS:     0.0,
 		BufCheckpointPS: 1.5,
-		BufBackendPS:   0.8,
-		DeadTuples:     500,
-		LiveTuples:     5000,
+		BufBackendPS:    0.8,
+		DeadTuples:      500,
+		LiveTuples:      5000,
 		AutovacuumCount: 7,
-		DBSizeBytes:    1024 * 1024 * 1024,
+		DBSizeBytes:     1024 * 1024 * 1024,
 	}
 	varBuf, err := appendVariable(nil, sample.Data)
 	if err != nil {
@@ -1099,8 +1099,8 @@ func TestDecodeMysqlV3Block(t *testing.T) {
 	// Build a v2 buffer in place of the v3 one. The first 66 bytes after
 	// the presence byte are identical to v3's [0:66], so we can borrow them.
 	var v2Var []byte
-	v2Var = append(v2Var, varBuf[:myOff]...) // up to mysql presence
-	v2Var = append(v2Var, 2)                  // v2 presence tag
+	v2Var = append(v2Var, varBuf[:myOff]...)             // up to mysql presence
+	v2Var = append(v2Var, 2)                             // v2 presence tag
 	v2Var = append(v2Var, varBuf[myOff+1:myOff+1+66]...) // v3's first 66B == v2 layout
 	// In varBuf the v3 trailer is: 8B errno + (1+len) IOState. Skip it.
 	v3StateLen := int(varBuf[myOff+1+74])

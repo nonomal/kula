@@ -31,7 +31,7 @@ func (c *styleCache) getBarStyle(pct float64) lipgloss.Style {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if style, exists := c.bars[pct]; exists {
 		return style
@@ -45,7 +45,7 @@ func (c *styleCache) getBarStyle(pct float64) lipgloss.Style {
 	} else {
 		style = sBarGood
 	}
-	
+
 	c.bars[pct] = style
 	return style
 }
@@ -61,7 +61,7 @@ func (c *styleCache) getStatusStyle(pct float64) lipgloss.Style {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if style, exists := c.status[pct]; exists {
 		return style
@@ -75,7 +75,7 @@ func (c *styleCache) getStatusStyle(pct float64) lipgloss.Style {
 	} else {
 		style = sGood
 	}
-	
+
 	c.status[pct] = style
 	return style
 }
@@ -91,7 +91,7 @@ func (c *styleCache) getLoadStyle(load float64) lipgloss.Style {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if style, exists := c.load[load]; exists {
 		return style
@@ -105,25 +105,25 @@ func (c *styleCache) getLoadStyle(load float64) lipgloss.Style {
 	} else {
 		style = sGood
 	}
-	
+
 	c.load[load] = style
 	return style
 }
 
 // Palette — dark purple/slate theme inspired by Charmbracelet's aesthetic.
 var (
-	clrPrimary  = lipgloss.Color("#5B80B5")
-	clrSky      = lipgloss.Color("#38BDF8") // sky-400
-	clrGreen    = lipgloss.Color("#4ADE80") // green-400
-	clrYellow   = lipgloss.Color("#FBBF24") // amber-400
-	clrRed      = lipgloss.Color("#F87171") // red-400
-	clrBg       = lipgloss.Color("#0D0E1A")
-	clrSurface  = lipgloss.Color("#141527")
-	clrCard     = lipgloss.Color("#1A1B2E")
-	clrBorder   = lipgloss.Color("#2D2E48")
-	clrText     = lipgloss.Color("#E2E8F0")
-	clrSubtext  = lipgloss.Color("#94A3B8")
-	clrDim      = lipgloss.Color("#475569")
+	clrPrimary = lipgloss.Color("#5B80B5")
+	clrSky     = lipgloss.Color("#38BDF8") // sky-400
+	clrGreen   = lipgloss.Color("#4ADE80") // green-400
+	clrYellow  = lipgloss.Color("#FBBF24") // amber-400
+	clrRed     = lipgloss.Color("#F87171") // red-400
+	clrBg      = lipgloss.Color("#0D0E1A")
+	clrSurface = lipgloss.Color("#141527")
+	clrCard    = lipgloss.Color("#1A1B2E")
+	clrBorder  = lipgloss.Color("#2D2E48")
+	clrText    = lipgloss.Color("#E2E8F0")
+	clrSubtext = lipgloss.Color("#94A3B8")
+	clrDim     = lipgloss.Color("#475569")
 )
 
 // ── Header ───────────────────────────────────────────────────────────────────
@@ -175,7 +175,7 @@ var (
 // ── Footer ───────────────────────────────────────────────────────────────────
 
 var (
-	sFooterBg = lipgloss.NewStyle().Background(clrSurface)
+	sFooterBg  = lipgloss.NewStyle().Background(clrSurface)
 	sFooterKey = lipgloss.NewStyle().
 			Background(clrPrimary).
 			Foreground(clrBg).

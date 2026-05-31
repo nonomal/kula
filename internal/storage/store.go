@@ -48,17 +48,31 @@ type Store struct {
 	latestCache *AggregatedSample
 
 	// queryCache is a short-lived in-process cache for QueryRangeWithMeta.
-	// It deduplicates identical or concurrent API calls. Cleared on every
-	// WriteSample call.
-	queryCacheMu sync.Mutex
-	queryCache   map[queryCacheKey]*HistoryResult
+	// It deduplicates identical or concurrent API calls. Entries carry a TTL of
+	// one tier-0 resolution; WriteSample evicts expired and live-edge entries
+	// instead of rebuilding the whole map, so cached past-window results survive
+	// across collection ticks without a per-second allocation.
+	queryCacheMu  sync.Mutex
+	queryCache    map[queryCacheKey]queryCacheEntry
+	queryCacheTTL time.Duration
 }
+
+// maxQueryCacheEntries caps the query cache as a safety bound. In normal
+// operation WriteSample sweeps the cache every collection tick, so it stays far
+// below this; the cap only matters if writes stall while reads keep arriving.
+const maxQueryCacheEntries = 256
 
 // queryCacheKey identifies a unique query rounded to tier resolution.
 type queryCacheKey struct {
 	fromNano     int64
 	toNano       int64
 	targetPoints int
+}
+
+// queryCacheEntry is a cached query result tagged with its expiry.
+type queryCacheEntry struct {
+	result    *HistoryResult
+	expiresAt time.Time
 }
 
 func NewStore(cfg config.StorageConfig) (*Store, error) {
@@ -72,9 +86,15 @@ func NewStore(cfg config.StorageConfig) (*Store, error) {
 	}
 
 	s := &Store{
-		dir:        absDir,
-		configs:    cfg.Tiers,
-		queryCache: make(map[queryCacheKey]*HistoryResult),
+		dir:           absDir,
+		configs:       cfg.Tiers,
+		queryCache:    make(map[queryCacheKey]queryCacheEntry),
+		queryCacheTTL: time.Second,
+	}
+	// Cache results for one tier-0 resolution so freshness matches the data's own
+	// granularity (falls back to 1s when no positive resolution is configured).
+	if len(cfg.Tiers) > 0 && cfg.Tiers[0].Resolution > 0 {
+		s.queryCacheTTL = cfg.Tiers[0].Resolution
 	}
 
 	// Compute aggregation ratios once — used on every WriteSample tick.
@@ -228,12 +248,27 @@ func (s *Store) WriteSample(sample *collector.Sample) error {
 		}
 	}
 
-	// Invalidate the query cache so the next fetch sees the new sample.
+	// Evict stale query-cache entries instead of rebuilding the whole map each
+	// tick: drop anything expired plus any window reaching the live edge (which
+	// must now reflect this new sample). Immutable past-window results stay cached.
 	s.queryCacheMu.Lock()
-	s.queryCache = make(map[queryCacheKey]*HistoryResult)
+	s.sweepQueryCacheLocked(time.Now(), sample.Timestamp.Truncate(time.Second).UnixNano())
 	s.queryCacheMu.Unlock()
 
 	return nil
+}
+
+// sweepQueryCacheLocked drops expired query-cache entries. When liveEdgeNano > 0
+// it also drops any entry whose window reaches that timestamp, since a sample
+// newly written at the live edge makes those results stale. Past-window entries
+// (toNano < liveEdgeNano) are immutable and kept until their TTL lapses. The
+// caller must hold s.queryCacheMu.
+func (s *Store) sweepQueryCacheLocked(now time.Time, liveEdgeNano int64) {
+	for k, e := range s.queryCache {
+		if !now.Before(e.expiresAt) || (liveEdgeNano > 0 && k.toNano >= liveEdgeNano) {
+			delete(s.queryCache, k)
+		}
+	}
 }
 
 // HistoryResult wraps query results with tier metadata for the API.
@@ -281,14 +316,19 @@ func (s *Store) QueryRangeWithMeta(from, to time.Time, targetPoints int) (*Histo
 		targetPoints: targetPoints,
 	}
 	s.queryCacheMu.Lock()
-	if cached, ok := s.queryCache[cacheKey]; ok {
-		s.queryCacheMu.Unlock()
-		cp := &HistoryResult{
-			Samples:    append([]*AggregatedSample(nil), cached.Samples...),
-			Tier:       cached.Tier,
-			Resolution: cached.Resolution,
+	if entry, ok := s.queryCache[cacheKey]; ok {
+		if time.Now().Before(entry.expiresAt) {
+			cached := entry.result
+			s.queryCacheMu.Unlock()
+			cp := &HistoryResult{
+				Samples:    append([]*AggregatedSample(nil), cached.Samples...),
+				Tier:       cached.Tier,
+				Resolution: cached.Resolution,
+			}
+			return cp, nil
 		}
-		return cp, nil
+		// Expired — drop it and fall through to recompute.
+		delete(s.queryCache, cacheKey)
 	}
 	s.queryCacheMu.Unlock()
 
@@ -374,9 +414,19 @@ func (s *Store) QueryRangeWithMeta(from, to time.Time, targetPoints int) (*Histo
 			Resolution: res,
 		}
 
-		// Store in cache — will be invalidated by the next WriteSample call.
+		// Cache with a TTL of one tier-0 resolution. The cap is a safety bound:
+		// if it's reached we sweep expired entries first and, failing that, skip
+		// caching rather than let the map grow without limit.
 		s.queryCacheMu.Lock()
-		s.queryCache[cacheKey] = result
+		if len(s.queryCache) >= maxQueryCacheEntries {
+			s.sweepQueryCacheLocked(time.Now(), 0)
+		}
+		if len(s.queryCache) < maxQueryCacheEntries {
+			s.queryCache[cacheKey] = queryCacheEntry{
+				result:    result,
+				expiresAt: time.Now().Add(s.queryCacheTTL),
+			}
+		}
 		s.queryCacheMu.Unlock()
 
 		return result, nil
@@ -752,85 +802,85 @@ func (s *Store) aggregateSamples(samples []*collector.Sample, dur time.Duration)
 		// Postgres rates
 		if avg.Apps.Postgres != nil {
 			var (
-				commitPS, rollPS                                    float64
-				fetchPS, retPS, insPS, updPS, delPS                float64
-				blksReadPS, blksHitPS, hitPct, deadlocksPS         float64
-				bufCkptPS, bufBackPS                               float64
+				commitPS, rollPS                           float64
+				fetchPS, retPS, insPS, updPS, delPS        float64
+				blksReadPS, blksHitPS, hitPct, deadlocksPS float64
+				bufCkptPS, bufBackPS                       float64
 			)
 			count := 0
 			for _, s := range samples {
 				if s.Apps.Postgres != nil {
 					pg := s.Apps.Postgres
-					commitPS   += pg.TxCommitPS
-					rollPS     += pg.TxRollbackPS
-					fetchPS    += pg.TupFetchedPS
-					retPS      += pg.TupReturnedPS
-					insPS      += pg.TupInsertedPS
-					updPS      += pg.TupUpdatedPS
-					delPS      += pg.TupDeletedPS
+					commitPS += pg.TxCommitPS
+					rollPS += pg.TxRollbackPS
+					fetchPS += pg.TupFetchedPS
+					retPS += pg.TupReturnedPS
+					insPS += pg.TupInsertedPS
+					updPS += pg.TupUpdatedPS
+					delPS += pg.TupDeletedPS
 					blksReadPS += pg.BlksReadPS
-					blksHitPS  += pg.BlksHitPS
-					hitPct     += pg.BlksHitPct
+					blksHitPS += pg.BlksHitPS
+					hitPct += pg.BlksHitPct
 					deadlocksPS += pg.DeadlocksPS
-					bufCkptPS  += pg.BufCheckpointPS
-					bufBackPS  += pg.BufBackendPS
+					bufCkptPS += pg.BufCheckpointPS
+					bufBackPS += pg.BufBackendPS
 					count++
 				}
 			}
 			if count > 0 {
 				fC := float64(count)
-				avg.Apps.Postgres.TxCommitPS      = roundF(commitPS / fC)
-				avg.Apps.Postgres.TxRollbackPS    = roundF(rollPS / fC)
-				avg.Apps.Postgres.TupFetchedPS    = roundF(fetchPS / fC)
-				avg.Apps.Postgres.TupReturnedPS   = roundF(retPS / fC)
-				avg.Apps.Postgres.TupInsertedPS   = roundF(insPS / fC)
-				avg.Apps.Postgres.TupUpdatedPS    = roundF(updPS / fC)
-				avg.Apps.Postgres.TupDeletedPS    = roundF(delPS / fC)
-				avg.Apps.Postgres.BlksReadPS      = roundF(blksReadPS / fC)
-				avg.Apps.Postgres.BlksHitPS       = roundF(blksHitPS / fC)
-				avg.Apps.Postgres.BlksHitPct      = roundF(hitPct / fC)
-				avg.Apps.Postgres.DeadlocksPS     = roundF(deadlocksPS / fC)
+				avg.Apps.Postgres.TxCommitPS = roundF(commitPS / fC)
+				avg.Apps.Postgres.TxRollbackPS = roundF(rollPS / fC)
+				avg.Apps.Postgres.TupFetchedPS = roundF(fetchPS / fC)
+				avg.Apps.Postgres.TupReturnedPS = roundF(retPS / fC)
+				avg.Apps.Postgres.TupInsertedPS = roundF(insPS / fC)
+				avg.Apps.Postgres.TupUpdatedPS = roundF(updPS / fC)
+				avg.Apps.Postgres.TupDeletedPS = roundF(delPS / fC)
+				avg.Apps.Postgres.BlksReadPS = roundF(blksReadPS / fC)
+				avg.Apps.Postgres.BlksHitPS = roundF(blksHitPS / fC)
+				avg.Apps.Postgres.BlksHitPct = roundF(hitPct / fC)
+				avg.Apps.Postgres.DeadlocksPS = roundF(deadlocksPS / fC)
 				avg.Apps.Postgres.BufCheckpointPS = roundF(bufCkptPS / fC)
-				avg.Apps.Postgres.BufBackendPS    = roundF(bufBackPS / fC)
+				avg.Apps.Postgres.BufBackendPS = roundF(bufBackPS / fC)
 			}
 		}
 
 		// MySQL rates
 		if avg.Apps.Mysql != nil {
 			var (
-				queriesPS, selectPS, insertPS, updatePS, deletePS     float64
-				slowPS, bpReadsPS, bpHitPct                           float64
-				tableLkWaitedPS, rowLkWaitsPS                         float64
+				queriesPS, selectPS, insertPS, updatePS, deletePS float64
+				slowPS, bpReadsPS, bpHitPct                       float64
+				tableLkWaitedPS, rowLkWaitsPS                     float64
 			)
 			count := 0
 			for _, s := range samples {
 				if s.Apps.Mysql != nil {
 					my := s.Apps.Mysql
-					queriesPS      += my.QueriesPS
-					selectPS       += my.ComSelectPS
-					insertPS       += my.ComInsertPS
-					updatePS       += my.ComUpdatePS
-					deletePS       += my.ComDeletePS
-					slowPS         += my.SlowQueriesPS
-					bpReadsPS      += my.InnodbBPReadsPS
-					bpHitPct       += my.InnodbBufferPoolHitPct
+					queriesPS += my.QueriesPS
+					selectPS += my.ComSelectPS
+					insertPS += my.ComInsertPS
+					updatePS += my.ComUpdatePS
+					deletePS += my.ComDeletePS
+					slowPS += my.SlowQueriesPS
+					bpReadsPS += my.InnodbBPReadsPS
+					bpHitPct += my.InnodbBufferPoolHitPct
 					tableLkWaitedPS += my.TableLocksWaitedPS
-					rowLkWaitsPS   += my.RowLockWaitsPS
+					rowLkWaitsPS += my.RowLockWaitsPS
 					count++
 				}
 			}
 			if count > 0 {
 				fC := float64(count)
-				avg.Apps.Mysql.QueriesPS             = roundF(queriesPS / fC)
-				avg.Apps.Mysql.ComSelectPS           = roundF(selectPS / fC)
-				avg.Apps.Mysql.ComInsertPS           = roundF(insertPS / fC)
-				avg.Apps.Mysql.ComUpdatePS           = roundF(updatePS / fC)
-				avg.Apps.Mysql.ComDeletePS           = roundF(deletePS / fC)
-				avg.Apps.Mysql.SlowQueriesPS         = roundF(slowPS / fC)
-				avg.Apps.Mysql.InnodbBPReadsPS       = roundF(bpReadsPS / fC)
+				avg.Apps.Mysql.QueriesPS = roundF(queriesPS / fC)
+				avg.Apps.Mysql.ComSelectPS = roundF(selectPS / fC)
+				avg.Apps.Mysql.ComInsertPS = roundF(insertPS / fC)
+				avg.Apps.Mysql.ComUpdatePS = roundF(updatePS / fC)
+				avg.Apps.Mysql.ComDeletePS = roundF(deletePS / fC)
+				avg.Apps.Mysql.SlowQueriesPS = roundF(slowPS / fC)
+				avg.Apps.Mysql.InnodbBPReadsPS = roundF(bpReadsPS / fC)
 				avg.Apps.Mysql.InnodbBufferPoolHitPct = roundF(bpHitPct / fC)
-				avg.Apps.Mysql.TableLocksWaitedPS    = roundF(tableLkWaitedPS / fC)
-				avg.Apps.Mysql.RowLockWaitsPS        = roundF(rowLkWaitsPS / fC)
+				avg.Apps.Mysql.TableLocksWaitedPS = roundF(tableLkWaitedPS / fC)
+				avg.Apps.Mysql.RowLockWaitsPS = roundF(rowLkWaitsPS / fC)
 			}
 		}
 

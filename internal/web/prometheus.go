@@ -672,6 +672,8 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
+	// Serves Prometheus text/plain metrics (label values are escaped via escapeLabel); not text/html, so the XSS rule doesn't apply.
+	// nosemgrep: no-direct-write-to-responsewriter
 	_, _ = w.Write([]byte(b.String()))
 }
 

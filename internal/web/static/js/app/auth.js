@@ -108,6 +108,7 @@ export function fetchConfig() {
 
             const versionStr = cfg.show_version === false ? '' : ' v' + (cfg.version || '0.0.0');
             console.log(
+                // nosemgrep: unsafe-formatstring -- static console banner, %c are CSS styling directives, not user input
                 '%c K U L A %c' + versionStr + ' %c Welcome to your monitoring dashboard! ',
                 'background: #0e1f2fff; color: #fff; border-radius: 3px 0 0 3px; padding: 3px 6px; font-weight: bold; font-family: sans-serif;',
                 'background: #0b406eff; color: #fff; border-radius: 0 3px 3px 0; padding: 3px ' + (cfg.show_version === false ? '0' : '6px') + '; font-weight: bold; font-family: sans-serif;',

@@ -13,11 +13,11 @@ const (
 	// maxBarWidth sets the maximum width for progress bars.
 	// Wider bars provide better visual precision but consume more horizontal space.
 	maxBarWidth = 50
-	
+
 	// minBarWidth defines the minimum width required to render a progress bar.
 	// Below this threshold, text-only representation is used for better readability.
 	minBarWidth = 10
-	
+
 	// narrowWidth is the terminal width threshold below which the overview
 	// layout switches from two-column to single-column for better readability.
 	// This ensures content remains accessible on smaller screens.
@@ -174,8 +174,8 @@ func (m model) buildOverviewLeft(colW int) string {
 	bw := barW(inner)
 
 	var builder strings.Builder
-	
-	builder.WriteString(sPanelTitleAlt.Render("◈ "+m.t.T("system_metrics")))
+
+	builder.WriteString(sPanelTitleAlt.Render("◈ " + m.t.T("system_metrics")))
 	builder.WriteString("\n")
 	builder.WriteString(sDivider.Render(strings.Repeat("─", inner)))
 	builder.WriteString("\n\n")
@@ -193,7 +193,7 @@ func (m model) buildOverviewLeft(colW int) string {
 	builder.WriteString("\n\n")
 	builder.WriteString(renderLabelVal(m.t.T("processes"), fmt.Sprintf("%d total  %d running  %d zombie",
 		s.Process.Total, s.Process.Running, s.Process.Zombie)))
-	
+
 	if len(s.GPU) > 0 {
 		builder.WriteString("\n\n")
 		builder.WriteString(sPanelTitle.Render("GPU Utilization"))
@@ -203,7 +203,7 @@ func (m model) buildOverviewLeft(colW int) string {
 			builder.WriteString("\n")
 		}
 	}
-	
+
 	return sPanel.Width(inner).Render(builder.String())
 }
 
@@ -211,12 +211,12 @@ func (m model) buildOverviewRight(colW int) string {
 	s := m.sample
 	inner := colW - 6
 	var builder strings.Builder
-	
-	builder.WriteString(sPanelTitleAlt.Render("◈ "+m.t.T("system_info")))
+
+	builder.WriteString(sPanelTitleAlt.Render("◈ " + m.t.T("system_info")))
 	builder.WriteString("\n")
 	builder.WriteString(sDivider.Render(strings.Repeat("─", inner)))
 	builder.WriteString("\n\n")
-	
+
 	if m.showSystemInfo {
 		builder.WriteString(renderLabelVal(padRight(m.t.T("username"), 10), s.System.Hostname))
 		builder.WriteString("\n")
@@ -227,7 +227,7 @@ func (m model) buildOverviewRight(colW int) string {
 		builder.WriteString(renderLabelVal(padRight(m.t.T("architecture"), 10), m.cpuArch))
 		builder.WriteString("\n\n")
 	}
-	
+
 	builder.WriteString(renderLabelVal(padRight(m.t.T("uptime"), 10), s.System.UptimeHuman))
 	builder.WriteString("\n")
 	builder.WriteString(renderLabelVal(padRight(m.t.T("clock"), 10), clockStr(s.System.ClockSync, s.System.ClockSource)))
@@ -235,19 +235,19 @@ func (m model) buildOverviewRight(colW int) string {
 	builder.WriteString(renderLabelVal(padRight(m.t.T("entropy"), 10), fmt.Sprintf("%d bits", s.System.Entropy)))
 	builder.WriteString("\n")
 	builder.WriteString(renderLabelVal(padRight(m.t.T("user"), 10), fmt.Sprintf("%d", s.System.UserCount)))
-	
+
 	if len(s.Network.Interfaces) > 0 {
 		builder.WriteString("\n\n")
 		builder.WriteString(sPanelTitle.Render(m.t.T("network_throughput")))
 		builder.WriteString("\n\n")
 		for _, iface := range s.Network.Interfaces {
-			builder.WriteString(sLabel.Render(padRight(iface.Name, 10))+" "+
-				sGood.Render("↓"+fmtMbps(iface.RxMbps))+" "+
+			builder.WriteString(sLabel.Render(padRight(iface.Name, 10)) + " " +
+				sGood.Render("↓"+fmtMbps(iface.RxMbps)) + " " +
 				sCrit.Render("↑"+fmtMbps(iface.TxMbps)))
 			builder.WriteString("\n")
 		}
 	}
-	
+
 	return sPanel.Width(inner).Render(builder.String())
 }
 
@@ -265,7 +265,7 @@ func (m model) viewCPU(w, h int) string {
 	bw := barW(inner)
 
 	var builder strings.Builder
-	
+
 	builder.WriteString(sPanelTitleAlt.Render("◈ CPU Usage"))
 	builder.WriteString("\n")
 	builder.WriteString(sDivider.Render(strings.Repeat("─", inner)))
@@ -319,7 +319,7 @@ func renderCPUBreakdown(c collector.CPUCoreStats) string {
 // buildMemorySection renders the RAM breakdown section with all memory metrics.
 func (m model) buildMemorySection(mem collector.MemoryStats) string {
 	var builder strings.Builder
-	
+
 	builder.WriteString(renderLabelVal(padRight(m.t.T("used"), 10), fmtBytes(mem.Used)))
 	builder.WriteString("\n")
 	builder.WriteString(renderLabelVal(padRight(m.t.T("free"), 10), fmtBytes(mem.Free)))
@@ -331,14 +331,14 @@ func (m model) buildMemorySection(mem collector.MemoryStats) string {
 	builder.WriteString(renderLabelVal("Cached   ", fmtBytes(mem.Cached)))
 	builder.WriteString("\n")
 	builder.WriteString(renderLabelVal("Shared   ", fmtBytes(mem.Shmem)))
-	
+
 	return builder.String()
 }
 
 // buildSwapSection renders the swap information section.
 func (m model) buildSwapSection(swap collector.SwapStats, bw int) string {
 	var builder strings.Builder
-	
+
 	if swap.Total == 0 {
 		builder.WriteString(sMuted.Render("  " + m.t.T("no_swap")))
 	} else {
@@ -349,7 +349,7 @@ func (m model) buildSwapSection(swap collector.SwapStats, bw int) string {
 		builder.WriteString("\n")
 		builder.WriteString(renderLabelVal("Free ", fmtBytes(swap.Free)))
 	}
-	
+
 	return builder.String()
 }
 
@@ -364,7 +364,7 @@ func (m model) viewMemory(w, h int) string {
 	bw := barW(inner)
 
 	var builder strings.Builder
-	
+
 	builder.WriteString(sPanelTitleAlt.Render("◈ Memory"))
 	builder.WriteString("\n")
 	builder.WriteString(sDivider.Render(strings.Repeat("─", inner)))
@@ -379,7 +379,7 @@ func (m model) viewMemory(w, h int) string {
 	builder.WriteString(sPanelTitle.Render("Swap"))
 	builder.WriteString("\n\n")
 	builder.WriteString(m.buildSwapSection(swap, bw))
-	
+
 	return sPanel.Width(inner).Render(builder.String())
 }
 
@@ -394,7 +394,7 @@ func (m model) buildNetworkInterfacesTable(interfaces []collector.NetInterface, 
 	}
 
 	var builder strings.Builder
-	
+
 	header := sTH.Render(padRight("Interface", cols[0])) +
 		sTH.Render(padLeft("Rx Mbps", cols[1])) +
 		sTH.Render(padLeft("Tx Mbps", cols[2])) +
@@ -404,12 +404,12 @@ func (m model) buildNetworkInterfacesTable(interfaces []collector.NetInterface, 
 		header += sTH.Render(padLeft("RxDrop", cols[5])) +
 			sTH.Render(padLeft("TxDrop", cols[6]))
 	}
-	
+
 	builder.WriteString(header)
 	builder.WriteString("\n")
 	builder.WriteString(sDivider.Render(strings.Repeat("─", sumInts(cols))))
 	builder.WriteString("\n")
-	
+
 	for _, iface := range interfaces {
 		row := sTD.Render(padRight(iface.Name, cols[0])) +
 			sTD.Render(padLeft(fmt.Sprintf("%.2f", iface.RxMbps), cols[1])) +
@@ -423,14 +423,14 @@ func (m model) buildNetworkInterfacesTable(interfaces []collector.NetInterface, 
 		builder.WriteString(row)
 		builder.WriteString("\n")
 	}
-	
+
 	return builder.String()
 }
 
 // buildTCPSocketsSection renders TCP and sockets statistics.
 func (m model) buildTCPSocketsSection(tcp collector.TCPStats, sock collector.SocketStats) string {
 	var builder strings.Builder
-	
+
 	builder.WriteString(renderLabelVal("Established", fmt.Sprintf("%d", tcp.CurrEstab)))
 	builder.WriteString("\n")
 	builder.WriteString(renderLabelVal("TCP In Use ", fmt.Sprintf("%d", sock.TCPInUse)))
@@ -442,7 +442,7 @@ func (m model) buildTCPSocketsSection(tcp collector.TCPStats, sock collector.Soc
 	builder.WriteString(renderLabelVal("In Errors/s", fmt.Sprintf("%.2f", tcp.InErrs)))
 	builder.WriteString("\n")
 	builder.WriteString(renderLabelVal("Out RSTs/s ", fmt.Sprintf("%.2f", tcp.OutRsts)))
-	
+
 	return builder.String()
 }
 
@@ -455,7 +455,7 @@ func (m model) viewNetwork(w, h int) string {
 	inner := w - 6
 
 	var builder strings.Builder
-	
+
 	builder.WriteString(sPanelTitleAlt.Render("◈ Network Interfaces"))
 	builder.WriteString("\n")
 	builder.WriteString(sDivider.Render(strings.Repeat("─", inner)))
@@ -465,7 +465,7 @@ func (m model) viewNetwork(w, h int) string {
 	builder.WriteString(sPanelTitle.Render("TCP / Sockets"))
 	builder.WriteString("\n\n")
 	builder.WriteString(m.buildTCPSocketsSection(net.TCP, net.Sockets))
-	
+
 	return sPanel.Width(inner).Render(builder.String())
 }
 
@@ -737,9 +737,9 @@ func (m model) viewGPU(w, h int) string {
 			builder.WriteString(sDivider.Render(strings.Repeat("┄", inner)))
 			builder.WriteString("\n\n")
 		}
-		
+
 		builder.WriteString(sPanelTitle.Render(fmt.Sprintf("[%d] %s", gpu.Index, gpu.Name)))
-		builder.WriteString(sMuted.Render("  driver: "+gpu.Driver))
+		builder.WriteString(sMuted.Render("  driver: " + gpu.Driver))
 		builder.WriteString("\n\n")
 
 		// Load
@@ -761,7 +761,7 @@ func (m model) viewGPU(w, h int) string {
 		if gpu.PowerW > 0 {
 			details = append(details, renderLabelVal("Power", fmt.Sprintf("%.1f W", gpu.PowerW)))
 		}
-		
+
 		if len(details) > 0 {
 			builder.WriteString("\n")
 			builder.WriteString(strings.Join(details, "    "))

@@ -15,11 +15,11 @@ import (
 
 func TestTemplateInjection(t *testing.T) {
 	s := NewServer(config.WebConfig{Security: config.SecurityConfig{Headers: true, OriginValidation: true}}, config.GlobalConfig{}, nil, nil, t.TempDir(), config.OllamaConfig{})
-	
+
 	// Create a recorder to capture the response
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/", nil)
-	
+
 	// Wrap with securityMiddleware to get the nonce
 	handler := s.securityMiddleware(http.HandlerFunc(s.handleIndex))
 	handler.ServeHTTP(rec, req)
@@ -60,10 +60,10 @@ func TestTemplateInjection(t *testing.T) {
 
 func TestGameTemplateInjection(t *testing.T) {
 	s := NewServer(config.WebConfig{Security: config.SecurityConfig{Headers: true, OriginValidation: true}}, config.GlobalConfig{}, nil, nil, t.TempDir(), config.OllamaConfig{})
-	
+
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/game.html", nil)
-	
+
 	handler := s.securityMiddleware(http.HandlerFunc(s.handleGame))
 	handler.ServeHTTP(rec, req)
 
@@ -72,7 +72,7 @@ func TestGameTemplateInjection(t *testing.T) {
 	}
 
 	body := html.UnescapeString(rec.Body.String())
-	
+
 	// Verify SRI for game.js
 	sri := s.sriHashes["game.js"]
 	if sri == "" {

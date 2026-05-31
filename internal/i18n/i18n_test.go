@@ -23,7 +23,7 @@ func TestTranslator_FallbackToEnglish(t *testing.T) {
 	if unknownTranslator.T("cpu") != "CPU" {
 		t.Errorf("Expected 'CPU', got %s", unknownTranslator.T("cpu"))
 	}
-	
+
 	// Missing key fallback
 	if unknownTranslator.T("missing_key_that_does_not_exist") != "missing_key_that_does_not_exist" {
 		t.Errorf("Expected raw key for missing translation")

@@ -24,12 +24,12 @@ import (
 // incoming metric names to the configured CustomMetricConfig entries to validate
 // and store values.
 type customCollector struct {
-	mu       sync.RWMutex
-	latest   map[string][]CustomMetricValue
-	configs  map[string][]config.CustomMetricConfig
-	sockPath string
-	listener net.Listener
-	debug    bool
+	mu        sync.RWMutex
+	latest    map[string][]CustomMetricValue
+	configs   map[string][]config.CustomMetricConfig
+	sockPath  string
+	listener  net.Listener
+	debug     bool
 	debugDone bool
 }
 

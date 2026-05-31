@@ -46,9 +46,16 @@ func (c *Collector) parseProcStat() []cpuRaw {
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		// Only the aggregate "cpu" line and per-core "cpuN" lines are relevant.
-		// Skip everything else (notably the large intr/softirq lines, which can
-		// be several KB) *before* touching the bytes, so they are never copied.
+		// The kernel always emits them as a contiguous block at the very top of
+		// /proc/stat, so once that block ends we can stop scanning entirely —
+		// the rest of the file (the large intr/softirq counters and ctxt/btime/…
+		// lines) is never tokenised or parsed. Before the block starts there is
+		// nothing to skip, but the guard keeps the loop correct if the format
+		// ever changes.
 		if len(line) < 3 || line[0] != 'c' || line[1] != 'p' || line[2] != 'u' {
+			if len(result) > 0 {
+				break
+			}
 			continue
 		}
 

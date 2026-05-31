@@ -145,7 +145,6 @@ func appendUint64(b []byte, v uint64) []byte {
 	return append(b, x[:]...)
 }
 
-
 func appendF32(b []byte, v float64) []byte {
 	var x [4]byte
 	putF32(x[:], v)
@@ -272,10 +271,18 @@ func appendFixed(buf []byte, s *collector.Sample) []byte {
 	putF32(b[38:], s.LoadAvg.Load5)
 	putF32(b[42:], s.LoadAvg.Load15)
 	run := s.LoadAvg.Running
-	if run < 0 { run = 0 } else if run > 65535 { run = 65535 }
+	if run < 0 {
+		run = 0
+	} else if run > 65535 {
+		run = 65535
+	}
 	binary.LittleEndian.PutUint16(b[46:], uint16(run))
 	tot := s.LoadAvg.Total
-	if tot < 0 { tot = 0 } else if tot > 65535 { tot = 65535 }
+	if tot < 0 {
+		tot = 0
+	} else if tot > 65535 {
+		tot = 65535
+	}
 	binary.LittleEndian.PutUint16(b[48:], uint16(tot))
 	// Memory (60 bytes)
 	binary.LittleEndian.PutUint64(b[50:], s.Memory.Total)
@@ -308,7 +315,11 @@ func appendFixed(buf []byte, s *collector.Sample) []byte {
 	// System (14 bytes)
 	binary.LittleEndian.PutUint64(b[190:], math.Float64bits(s.System.Uptime))
 	ent := s.System.Entropy
-	if ent < 0 { ent = 0 } else if ent > math.MaxInt32 { ent = math.MaxInt32 }
+	if ent < 0 {
+		ent = 0
+	} else if ent > math.MaxInt32 {
+		ent = math.MaxInt32
+	}
 	binary.LittleEndian.PutUint32(b[198:], uint32(int32(ent)))
 	b[202] = uint8(s.System.UserCount)
 	if s.System.ClockSync {
@@ -816,18 +827,30 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 		if err := need(4*4+8*8, "iface fields"); err != nil {
 			return off, err
 		}
-		iface.RxMbps = getF32(data[off:]); off += 4
-		iface.TxMbps = getF32(data[off:]); off += 4
-		iface.RxPPS = getF32(data[off:]); off += 4
-		iface.TxPPS = getF32(data[off:]); off += 4
-		iface.RxBytes = binary.LittleEndian.Uint64(data[off:]); off += 8
-		iface.TxBytes = binary.LittleEndian.Uint64(data[off:]); off += 8
-		iface.RxPkts = binary.LittleEndian.Uint64(data[off:]); off += 8
-		iface.TxPkts = binary.LittleEndian.Uint64(data[off:]); off += 8
-		iface.RxErrs = binary.LittleEndian.Uint64(data[off:]); off += 8
-		iface.TxErrs = binary.LittleEndian.Uint64(data[off:]); off += 8
-		iface.RxDrop = binary.LittleEndian.Uint64(data[off:]); off += 8
-		iface.TxDrop = binary.LittleEndian.Uint64(data[off:]); off += 8
+		iface.RxMbps = getF32(data[off:])
+		off += 4
+		iface.TxMbps = getF32(data[off:])
+		off += 4
+		iface.RxPPS = getF32(data[off:])
+		off += 4
+		iface.TxPPS = getF32(data[off:])
+		off += 4
+		iface.RxBytes = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		iface.TxBytes = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		iface.RxPkts = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		iface.TxPkts = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		iface.RxErrs = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		iface.TxErrs = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		iface.RxDrop = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		iface.TxDrop = binary.LittleEndian.Uint64(data[off:])
+		off += 8
 		s.Network.Interfaces = append(s.Network.Interfaces, iface)
 	}
 
@@ -847,7 +870,8 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 		if err := need(4, "cpu sensor value"); err != nil {
 			return off, err
 		}
-		val := getF32(data[off:]); off += 4
+		val := getF32(data[off:])
+		off += 4
 		s.CPU.Sensors = append(s.CPU.Sensors, collector.CPUTempSensor{Name: name, Value: val})
 	}
 
@@ -869,12 +893,18 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 		if err := need(6*4, "disk scalar fields"); err != nil {
 			return off, err
 		}
-		dev.ReadsPerSec = getF32(data[off:]); off += 4
-		dev.WritesPerSec = getF32(data[off:]); off += 4
-		dev.ReadBytesPS = getF32(data[off:]); off += 4
-		dev.WriteBytesPS = getF32(data[off:]); off += 4
-		dev.Utilization = getF32(data[off:]); off += 4
-		dev.Temperature = getF32(data[off:]); off += 4
+		dev.ReadsPerSec = getF32(data[off:])
+		off += 4
+		dev.WritesPerSec = getF32(data[off:])
+		off += 4
+		dev.ReadBytesPS = getF32(data[off:])
+		off += 4
+		dev.WriteBytesPS = getF32(data[off:])
+		off += 4
+		dev.Utilization = getF32(data[off:])
+		off += 4
+		dev.Temperature = getF32(data[off:])
+		off += 4
 		if err := need(2, "disk sensor count"); err != nil {
 			return off, err
 		}
@@ -890,7 +920,8 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 			if err := need(4, "disk sensor value"); err != nil {
 				return off, err
 			}
-			tsVal := getF32(data[off:]); off += 4
+			tsVal := getF32(data[off:])
+			off += 4
 			dev.Sensors = append(dev.Sensors, collector.DiskTempSensor{Name: tsName, Value: tsVal})
 		}
 		s.Disks.Devices = append(s.Disks.Devices, dev)
@@ -926,10 +957,14 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 		if err := need(3*8+4, "fs numeric fields"); err != nil {
 			return off, err
 		}
-		fs.Total = binary.LittleEndian.Uint64(data[off:]); off += 8
-		fs.Used = binary.LittleEndian.Uint64(data[off:]); off += 8
-		fs.Available = binary.LittleEndian.Uint64(data[off:]); off += 8
-		fs.UsedPct = getF32(data[off:]); off += 4
+		fs.Total = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		fs.Used = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		fs.Available = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		fs.UsedPct = getF32(data[off:])
+		off += 4
 		s.Disks.FileSystems = append(s.Disks.FileSystems, fs)
 	}
 
@@ -960,7 +995,8 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 		if err := need(2, "gpu index"); err != nil {
 			return off, err
 		}
-		g.Index = int(binary.LittleEndian.Uint16(data[off:])); off += 2
+		g.Index = int(binary.LittleEndian.Uint16(data[off:]))
+		off += 2
 		name, gn, err := getStr(data[off:])
 		if err != nil {
 			return off, fmt.Errorf("gpu name: %w", err)
@@ -976,12 +1012,18 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 		if err := need(4+8+8+4+4+4, "gpu scalar fields"); err != nil {
 			return off, err
 		}
-		g.Temperature = getF32(data[off:]); off += 4
-		g.VRAMUsed = binary.LittleEndian.Uint64(data[off:]); off += 8
-		g.VRAMTotal = binary.LittleEndian.Uint64(data[off:]); off += 8
-		g.VRAMUsedPct = getF32(data[off:]); off += 4
-		g.LoadPct = getF32(data[off:]); off += 4
-		g.PowerW = getF32(data[off:]); off += 4
+		g.Temperature = getF32(data[off:])
+		off += 4
+		g.VRAMUsed = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		g.VRAMTotal = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		g.VRAMUsedPct = getF32(data[off:])
+		off += 4
+		g.LoadPct = getF32(data[off:])
+		off += 4
+		g.PowerW = getF32(data[off:])
+		off += 4
 		s.GPU = append(s.GPU, g)
 	}
 
@@ -994,22 +1036,36 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 	}
 
 	// Nginx
-	nginxPresent := data[off]; off++
+	if err := need(1, "nginx presence"); err != nil {
+		return off, err
+	}
+	nginxPresent := data[off]
+	off++
 	if nginxPresent != 0 {
 		if err := need(52, "nginx fields"); err != nil {
 			return off, err
 		}
 		ng := &collector.NginxStats{}
-		ng.ActiveConnections = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		ng.Accepts = binary.LittleEndian.Uint64(data[off:]); off += 8
-		ng.Handled = binary.LittleEndian.Uint64(data[off:]); off += 8
-		ng.Requests = binary.LittleEndian.Uint64(data[off:]); off += 8
-		ng.AcceptsPS = getF32(data[off:]); off += 4
-		ng.HandledPS = getF32(data[off:]); off += 4
-		ng.RequestsPS = getF32(data[off:]); off += 4
-		ng.Reading = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		ng.Writing = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		ng.Waiting = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+		ng.ActiveConnections = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
+		ng.Accepts = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		ng.Handled = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		ng.Requests = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		ng.AcceptsPS = getF32(data[off:])
+		off += 4
+		ng.HandledPS = getF32(data[off:])
+		off += 4
+		ng.RequestsPS = getF32(data[off:])
+		off += 4
+		ng.Reading = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
+		ng.Writing = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
+		ng.Waiting = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
 		s.Apps.Nginx = ng
 	}
 
@@ -1017,7 +1073,8 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 	if err := need(2, "container count"); err != nil {
 		return off, err
 	}
-	numContainers := int(binary.LittleEndian.Uint16(data[off:])); off += 2
+	numContainers := int(binary.LittleEndian.Uint16(data[off:]))
+	off += 2
 	if numContainers > 0 {
 		s.Apps.Containers = make([]collector.ContainerStats, 0, numContainers)
 	}
@@ -1038,14 +1095,22 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 		if err := need(4+8+8+4*5, "container fields"); err != nil {
 			return off, err
 		}
-		ct.CPUPct = getF32(data[off:]); off += 4
-		ct.MemUsed = binary.LittleEndian.Uint64(data[off:]); off += 8
-		ct.MemLimit = binary.LittleEndian.Uint64(data[off:]); off += 8
-		ct.MemPct = getF32(data[off:]); off += 4
-		ct.NetRxBPS = getF32(data[off:]); off += 4
-		ct.NetTxBPS = getF32(data[off:]); off += 4
-		ct.DiskRBPS = getF32(data[off:]); off += 4
-		ct.DiskWBPS = getF32(data[off:]); off += 4
+		ct.CPUPct = getF32(data[off:])
+		off += 4
+		ct.MemUsed = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		ct.MemLimit = binary.LittleEndian.Uint64(data[off:])
+		off += 8
+		ct.MemPct = getF32(data[off:])
+		off += 4
+		ct.NetRxBPS = getF32(data[off:])
+		off += 4
+		ct.NetTxBPS = getF32(data[off:])
+		off += 4
+		ct.DiskRBPS = getF32(data[off:])
+		off += 4
+		ct.DiskWBPS = getF32(data[off:])
+		off += 4
 		s.Apps.Containers = append(s.Apps.Containers, ct)
 	}
 
@@ -1056,7 +1121,8 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 	if err := need(1, "postgres presence"); err != nil {
 		return off, err
 	}
-	pgVersion := data[off]; off++
+	pgVersion := data[off]
+	off++
 	if pgVersion == 1 {
 		// v1: old 56-byte block (ActiveConns, IdleConns, MaxConns,
 		//   TxCommitPS, TxRollbackPS, TupFetchedPS, TupInsertedPS,
@@ -1065,18 +1131,30 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 			return off, err
 		}
 		pg := &collector.PostgresStats{}
-		pg.ActiveConns  = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		pg.IdleConns    = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		pg.MaxConns     = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		pg.TxCommitPS   = getF32(data[off:]); off += 4
-		pg.TxRollbackPS = getF32(data[off:]); off += 4
-		pg.TupFetchedPS = getF32(data[off:]); off += 4
-		pg.TupInsertedPS = getF32(data[off:]); off += 4
-		pg.TupUpdatedPS = getF32(data[off:]); off += 4
-		pg.TupDeletedPS = getF32(data[off:]); off += 4
-		pg.BlksHitPct   = getF32(data[off:]); off += 4
-		pg.DeadTuples   = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
-		pg.DBSizeBytes  = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
+		pg.ActiveConns = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
+		pg.IdleConns = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
+		pg.MaxConns = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
+		pg.TxCommitPS = getF32(data[off:])
+		off += 4
+		pg.TxRollbackPS = getF32(data[off:])
+		off += 4
+		pg.TupFetchedPS = getF32(data[off:])
+		off += 4
+		pg.TupInsertedPS = getF32(data[off:])
+		off += 4
+		pg.TupUpdatedPS = getF32(data[off:])
+		off += 4
+		pg.TupDeletedPS = getF32(data[off:])
+		off += 4
+		pg.BlksHitPct = getF32(data[off:])
+		off += 4
+		pg.DeadTuples = int64(binary.LittleEndian.Uint64(data[off:]))
+		off += 8
+		pg.DBSizeBytes = int64(binary.LittleEndian.Uint64(data[off:]))
+		off += 8
 		s.Apps.Postgres = pg
 	} else if pgVersion >= 2 {
 		// v2 = 104B; v3 extends with 17B of replication state. The shared
@@ -1090,33 +1168,59 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 			return off, err
 		}
 		pg := &collector.PostgresStats{}
-		pg.ActiveConns    = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		pg.IdleConns      = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		pg.IdleInTxConns  = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		pg.WaitingConns   = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		pg.MaxConns       = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-		pg.TxCommitPS     = getF32(data[off:]); off += 4
-		pg.TxRollbackPS   = getF32(data[off:]); off += 4
-		pg.TupFetchedPS   = getF32(data[off:]); off += 4
-		pg.TupReturnedPS  = getF32(data[off:]); off += 4
-		pg.TupInsertedPS  = getF32(data[off:]); off += 4
-		pg.TupUpdatedPS   = getF32(data[off:]); off += 4
-		pg.TupDeletedPS   = getF32(data[off:]); off += 4
-		pg.BlksReadPS     = getF32(data[off:]); off += 4
-		pg.BlksHitPS      = getF32(data[off:]); off += 4
-		pg.BlksHitPct     = getF32(data[off:]); off += 4
-		pg.DeadlocksPS    = getF32(data[off:]); off += 4
-		pg.BufCheckpointPS = getF32(data[off:]); off += 4
-		pg.BufBackendPS   = getF32(data[off:]); off += 4
-		pg.DeadTuples     = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
-		pg.LiveTuples     = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
-		pg.AutovacuumCount = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
-		pg.DBSizeBytes    = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
+		pg.ActiveConns = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
+		pg.IdleConns = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
+		pg.IdleInTxConns = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
+		pg.WaitingConns = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
+		pg.MaxConns = int(int32(binary.LittleEndian.Uint32(data[off:])))
+		off += 4
+		pg.TxCommitPS = getF32(data[off:])
+		off += 4
+		pg.TxRollbackPS = getF32(data[off:])
+		off += 4
+		pg.TupFetchedPS = getF32(data[off:])
+		off += 4
+		pg.TupReturnedPS = getF32(data[off:])
+		off += 4
+		pg.TupInsertedPS = getF32(data[off:])
+		off += 4
+		pg.TupUpdatedPS = getF32(data[off:])
+		off += 4
+		pg.TupDeletedPS = getF32(data[off:])
+		off += 4
+		pg.BlksReadPS = getF32(data[off:])
+		off += 4
+		pg.BlksHitPS = getF32(data[off:])
+		off += 4
+		pg.BlksHitPct = getF32(data[off:])
+		off += 4
+		pg.DeadlocksPS = getF32(data[off:])
+		off += 4
+		pg.BufCheckpointPS = getF32(data[off:])
+		off += 4
+		pg.BufBackendPS = getF32(data[off:])
+		off += 4
+		pg.DeadTuples = int64(binary.LittleEndian.Uint64(data[off:]))
+		off += 8
+		pg.LiveTuples = int64(binary.LittleEndian.Uint64(data[off:]))
+		off += 8
+		pg.AutovacuumCount = int64(binary.LittleEndian.Uint64(data[off:]))
+		off += 8
+		pg.DBSizeBytes = int64(binary.LittleEndian.Uint64(data[off:]))
+		off += 8
 		if pgVersion >= 3 {
-			pg.ReplicaCount         = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			pg.IsInRecovery         = data[off] != 0; off++
-			pg.ReplicationLagBytes  = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
-			pg.ReplicationLagSeconds = getF32(data[off:]); off += 4
+			pg.ReplicaCount = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			pg.IsInRecovery = data[off] != 0
+			off++
+			pg.ReplicationLagBytes = int64(binary.LittleEndian.Uint64(data[off:]))
+			off += 8
+			pg.ReplicationLagSeconds = getF32(data[off:])
+			off += 4
 		}
 		s.Apps.Postgres = pg
 	}
@@ -1130,7 +1234,8 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 		if err := need(1, "mysql presence"); err != nil {
 			return off, err
 		}
-		myVersion := data[off]; off++
+		myVersion := data[off]
+		off++
 		if myVersion >= 1 {
 			blockSize := 56
 			switch {
@@ -1143,25 +1248,43 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 				return off, err
 			}
 			my := &collector.MysqlStats{}
-			my.ThreadsConnected = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			my.ThreadsRunning   = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			my.ThreadsCached    = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			my.MaxConnections   = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			my.QueriesPS       = getF32(data[off:]); off += 4
-			my.ComSelectPS     = getF32(data[off:]); off += 4
-			my.ComInsertPS     = getF32(data[off:]); off += 4
-			my.ComUpdatePS     = getF32(data[off:]); off += 4
-			my.ComDeletePS     = getF32(data[off:]); off += 4
-			my.SlowQueriesPS   = getF32(data[off:]); off += 4
-			my.InnodbBufferPoolHitPct = getF32(data[off:]); off += 4
-			my.InnodbBPReadsPS = getF32(data[off:]); off += 4
-			my.TableLocksWaitedPS = getF32(data[off:]); off += 4
-			my.RowLockWaitsPS  = getF32(data[off:]); off += 4
+			my.ThreadsConnected = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			my.ThreadsRunning = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			my.ThreadsCached = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			my.MaxConnections = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			my.QueriesPS = getF32(data[off:])
+			off += 4
+			my.ComSelectPS = getF32(data[off:])
+			off += 4
+			my.ComInsertPS = getF32(data[off:])
+			off += 4
+			my.ComUpdatePS = getF32(data[off:])
+			off += 4
+			my.ComDeletePS = getF32(data[off:])
+			off += 4
+			my.SlowQueriesPS = getF32(data[off:])
+			off += 4
+			my.InnodbBufferPoolHitPct = getF32(data[off:])
+			off += 4
+			my.InnodbBPReadsPS = getF32(data[off:])
+			off += 4
+			my.TableLocksWaitedPS = getF32(data[off:])
+			off += 4
+			my.RowLockWaitsPS = getF32(data[off:])
+			off += 4
 			if myVersion >= 2 {
-				my.ReplicaCount        = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-				my.ReplicaIORunning    = data[off] != 0; off++
-				my.ReplicaSQLRunning   = data[off] != 0; off++
-				my.ReplicaSecondsBehind = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+				my.ReplicaCount = int(int32(binary.LittleEndian.Uint32(data[off:])))
+				off += 4
+				my.ReplicaIORunning = data[off] != 0
+				off++
+				my.ReplicaSQLRunning = data[off] != 0
+				off++
+				my.ReplicaSecondsBehind = int(int32(binary.LittleEndian.Uint32(data[off:])))
+				off += 4
 			} else {
 				// v1 records have no replication info; sentinel -1 means
 				// "unknown / not configured" so downstream consumers can
@@ -1169,8 +1292,10 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 				my.ReplicaSecondsBehind = -1
 			}
 			if myVersion >= 3 {
-				my.LastIOErrno  = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-				my.LastSQLErrno = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+				my.LastIOErrno = int(int32(binary.LittleEndian.Uint32(data[off:])))
+				off += 4
+				my.LastSQLErrno = int(int32(binary.LittleEndian.Uint32(data[off:])))
+				off += 4
 				state, n, err := getStr(data[off:])
 				if err != nil {
 					return off, fmt.Errorf("mysql io_state: %w", err)
@@ -1185,56 +1310,97 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 	// Apache2 — gated by flagHasApache2 so old records (pre-0.16.0) that
 	// lack this flag skip the byte and continue to custom metrics.
 	if hasApache2 {
-		apache2Version := data[off]; off++
+		if err := need(1, "apache2 presence"); err != nil {
+			return off, err
+		}
+		apache2Version := data[off]
+		off++
 		switch apache2Version {
 		case 1:
 			if err := need(72, "apache2 v1 fields"); err != nil {
 				return off, err
 			}
 			ap := &collector.Apache2Stats{}
-			ap.BusyWorkers = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.IdleWorkers = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.TotalAccesses = binary.LittleEndian.Uint64(data[off:]); off += 8
-			ap.TotalKBytes = binary.LittleEndian.Uint64(data[off:]); off += 8
-			ap.AccessesPS = getF32(data[off:]); off += 4
-			ap.KBytesPS = getF32(data[off:]); off += 4
-			ap.ReqPerSec = getF32(data[off:]); off += 4
-			ap.BytesPerSec = getF32(data[off:]); off += 4
-			ap.BytesPerReq = getF32(data[off:]); off += 4
-			ap.CPULoad = getF32(data[off:]); off += 4
-			ap.Uptime = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
-			ap.Waiting = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.Reading = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.Sending = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.Keepalive = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+			ap.BusyWorkers = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.IdleWorkers = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.TotalAccesses = binary.LittleEndian.Uint64(data[off:])
+			off += 8
+			ap.TotalKBytes = binary.LittleEndian.Uint64(data[off:])
+			off += 8
+			ap.AccessesPS = getF32(data[off:])
+			off += 4
+			ap.KBytesPS = getF32(data[off:])
+			off += 4
+			ap.ReqPerSec = getF32(data[off:])
+			off += 4
+			ap.BytesPerSec = getF32(data[off:])
+			off += 4
+			ap.BytesPerReq = getF32(data[off:])
+			off += 4
+			ap.CPULoad = getF32(data[off:])
+			off += 4
+			ap.Uptime = int64(binary.LittleEndian.Uint64(data[off:]))
+			off += 8
+			ap.Waiting = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.Reading = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.Sending = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.Keepalive = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
 			s.Apps.Apache2 = ap
 		case 2:
 			if err := need(100, "apache2 v2 fields"); err != nil {
 				return off, err
 			}
 			ap := &collector.Apache2Stats{}
-			ap.BusyWorkers = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.IdleWorkers = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.TotalAccesses = binary.LittleEndian.Uint64(data[off:]); off += 8
-			ap.TotalKBytes = binary.LittleEndian.Uint64(data[off:]); off += 8
-			ap.AccessesPS = getF32(data[off:]); off += 4
-			ap.KBytesPS = getF32(data[off:]); off += 4
-			ap.ReqPerSec = getF32(data[off:]); off += 4
-			ap.BytesPerSec = getF32(data[off:]); off += 4
-			ap.BytesPerReq = getF32(data[off:]); off += 4
-			ap.CPULoad = getF32(data[off:]); off += 4
-			ap.Uptime = int64(binary.LittleEndian.Uint64(data[off:])); off += 8
-			ap.Waiting = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.Reading = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.Sending = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.Keepalive = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.Starting = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.DNS = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.Closing = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.Logging = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.Graceful = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.IdleCleanup = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
-			ap.OpenSlots = int(int32(binary.LittleEndian.Uint32(data[off:]))); off += 4
+			ap.BusyWorkers = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.IdleWorkers = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.TotalAccesses = binary.LittleEndian.Uint64(data[off:])
+			off += 8
+			ap.TotalKBytes = binary.LittleEndian.Uint64(data[off:])
+			off += 8
+			ap.AccessesPS = getF32(data[off:])
+			off += 4
+			ap.KBytesPS = getF32(data[off:])
+			off += 4
+			ap.ReqPerSec = getF32(data[off:])
+			off += 4
+			ap.BytesPerSec = getF32(data[off:])
+			off += 4
+			ap.BytesPerReq = getF32(data[off:])
+			off += 4
+			ap.CPULoad = getF32(data[off:])
+			off += 4
+			ap.Uptime = int64(binary.LittleEndian.Uint64(data[off:]))
+			off += 8
+			ap.Waiting = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.Reading = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.Sending = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.Keepalive = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.Starting = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.DNS = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.Closing = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.Logging = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.Graceful = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.IdleCleanup = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
+			ap.OpenSlots = int(int32(binary.LittleEndian.Uint32(data[off:])))
+			off += 4
 			s.Apps.Apache2 = ap
 		}
 	}
@@ -1243,7 +1409,8 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 	if err := need(2, "custom group count"); err != nil {
 		return off, err
 	}
-	numGroups := int(binary.LittleEndian.Uint16(data[off:])); off += 2
+	numGroups := int(binary.LittleEndian.Uint16(data[off:]))
+	off += 2
 	if numGroups > 0 {
 		s.Apps.Custom = make(map[string][]collector.CustomMetricValue, numGroups)
 	}
@@ -1256,7 +1423,8 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 		if err := need(2, "custom metric count"); err != nil {
 			return off, err
 		}
-		mCount := int(binary.LittleEndian.Uint16(data[off:])); off += 2
+		mCount := int(binary.LittleEndian.Uint16(data[off:]))
+		off += 2
 		metrics := make([]collector.CustomMetricValue, 0, mCount)
 		for j := 0; j < mCount; j++ {
 			mName, mn, err := getStr(data[off:])
@@ -1267,7 +1435,8 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 			if err := need(4, "custom metric value"); err != nil {
 				return off, err
 			}
-			val := getF32(data[off:]); off += 4
+			val := getF32(data[off:])
+			off += 4
 			metrics = append(metrics, collector.CustomMetricValue{Name: mName, Value: val})
 		}
 		s.Apps.Custom[groupName] = metrics
@@ -1341,4 +1510,3 @@ func decodeSampleJSON(data []byte) (*AggregatedSample, error) {
 	err := json.Unmarshal(data, s)
 	return s, err
 }
-

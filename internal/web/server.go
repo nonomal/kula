@@ -71,7 +71,16 @@ func NewServer(cfg config.WebConfig, global config.GlobalConfig, c *collector.Co
 }
 
 // BroadcastSample sends a new sample to all WebSocket clients.
+//
+// When no clients are connected — the common case for a server whose
+// dashboard is closed — the per-tick JSON marshal is skipped entirely, so an
+// unwatched instance does zero serialization work each second. A client that
+// connects later receives the current sample from collector.Latest() during
+// the WebSocket upgrade, so nothing is lost.
 func (s *Server) BroadcastSample(sample *collector.Sample) {
+	if !s.hub.hasClients() {
+		return
+	}
 	data, err := json.Marshal(sample)
 	if err != nil {
 		return
@@ -187,6 +196,8 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	b, _ := json.Marshal(map[string]string{"error": msg})
+	// Writes JSON (not text/html); the XSS rule doesn't apply.
+	// nosemgrep: no-direct-write-to-responsewriter
 	_, _ = w.Write(b)
 }
 
@@ -309,27 +320,13 @@ func (s *Server) sessionCookieSameSite(r *http.Request) (http.SameSite, bool) {
 	return http.SameSiteStrictMode, tlsSecure
 }
 
-func (s *Server) Start() error {
-	if !s.cfg.Enabled {
-		return nil
-	}
-	if err := s.auth.LoadSessions(); err != nil {
-		log.Printf("Warning: failed to load sessions: %v", err)
-	}
-	if s.cfg.TrustProxy {
-		log.Printf("Security Note: TrustProxy is enabled. Ensure Kula is behind a trusted reverse proxy that handles X-Forwarded-For.")
-	}
-
-	if len(s.cfg.Security.AllowedOrigins) > 0 {
-		log.Printf("Security Note: web.security.allowed_origins is set (%d origin(s)); session cookies will be issued with SameSite=None; Secure.", len(s.cfg.Security.AllowedOrigins))
-		if !s.cfg.TrustProxy {
-			log.Printf("Security Warning: allowed_origins requires HTTPS for cross-origin auth. Without TLS or trust_proxy, browsers will reject SameSite=None;Secure cookies and cross-origin login will silently fail.")
-		}
-		if !s.cfg.Security.OriginValidation && !s.cfg.Auth.Enabled {
-			log.Printf("Security Warning: allowed_origins is set, origin_validation is disabled, and auth is disabled. The API has no CSRF protection and will accept state-changing requests from any cross-origin page the browser loads.")
-		}
-	}
-
+// buildHandler assembles the complete HTTP handler chain: the route mux, the
+// optional base-path mount, the security-header middleware, and optional gzip.
+// It performs no I/O and starts no goroutines, so tests can drive the exact
+// production middleware stack (CORS → auth → CSRF → logging → handlers, wrapped
+// by security headers and gzip) through httptest without binding a socket.
+// Start composes the same chain by calling this after wiring up its goroutines.
+func (s *Server) buildHandler() http.Handler {
 	mux := http.NewServeMux()
 
 	// API routes
@@ -408,15 +405,6 @@ func (s *Server) Start() error {
 		mux.HandleFunc("/status", s.handleHealth)
 	}
 
-	go s.hub.run()
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-		for range ticker.C {
-			s.auth.CleanupSessions()
-		}
-	}()
-
 	routed := mountWithBasePath(mux, s.cfg.BasePath)
 	if s.cfg.BasePath != "" {
 		log.Printf("Web routes mounted under base path %q", s.cfg.BasePath)
@@ -426,6 +414,46 @@ func (s *Server) Start() error {
 	if s.cfg.EnableCompression {
 		handler = gzipMiddleware(handler)
 	}
+	return handler
+}
+
+func (s *Server) Start() error {
+	if !s.cfg.Enabled {
+		return nil
+	}
+	if err := s.auth.LoadSessions(); err != nil {
+		log.Printf("Warning: failed to load sessions: %v", err)
+	}
+	if s.cfg.TrustProxy {
+		log.Printf("Security Note: TrustProxy is enabled. Ensure Kula is behind a trusted reverse proxy that handles X-Forwarded-For.")
+	}
+
+	if len(s.cfg.Security.AllowedOrigins) > 0 {
+		log.Printf("Security Note: web.security.allowed_origins is set (%d origin(s)); session cookies will be issued with SameSite=None; Secure.", len(s.cfg.Security.AllowedOrigins))
+		if !s.cfg.TrustProxy {
+			log.Printf("Security Warning: allowed_origins requires HTTPS for cross-origin auth. Without TLS or trust_proxy, browsers will reject SameSite=None;Secure cookies and cross-origin login will silently fail.")
+		}
+		if !s.cfg.Security.OriginValidation && !s.cfg.Auth.Enabled {
+			log.Printf("Security Warning: allowed_origins is set, origin_validation is disabled, and auth is disabled. The API has no CSRF protection and will accept state-changing requests from any cross-origin page the browser loads.")
+		}
+	}
+
+	go s.hub.run()
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			s.auth.CleanupSessions()
+			if s.ollamaLimiter != nil {
+				s.ollamaLimiter.purgeStale()
+			}
+			if s.ollamaMetaLim != nil {
+				s.ollamaMetaLim.purgeStale()
+			}
+		}
+	}()
+
+	handler := s.buildHandler()
 
 	s.httpSrv = &http.Server{
 		Handler:      handler,
@@ -789,6 +817,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sameSite, secure := s.sessionCookieSameSite(r)
+	// Secure is set conditionally (above) so kula also works over plain HTTP on a LAN; not a hardcoded false.
+	// nosemgrep: cookie-missing-secure
 	http.SetCookie(w, &http.Cookie{
 		Name:     "kula_session",
 		Value:    token,
@@ -823,6 +853,8 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 	// Delete the cookie on the client side
 	sameSite, secure := s.sessionCookieSameSite(r)
+	// Secure is set conditionally (above) so kula also works over plain HTTP on a LAN; not a hardcoded false.
+	// nosemgrep: cookie-missing-secure
 	http.SetCookie(w, &http.Cookie{
 		Name:     "kula_session",
 		Value:    "",
@@ -891,6 +923,8 @@ func (s *Server) handleI18n(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	// Serves a raw i18n locale JSON blob (not text/html); the XSS rule doesn't apply.
+	// nosemgrep: no-direct-write-to-responsewriter
 	_, _ = w.Write(data)
 }
 
@@ -923,6 +957,14 @@ func (h *wsHub) run() {
 			h.mu.Unlock()
 		}
 	}
+}
+
+// hasClients reports whether any WebSocket clients are currently connected.
+func (h *wsHub) hasClients() bool {
+	h.mu.RLock()
+	n := len(h.clients)
+	h.mu.RUnlock()
+	return n > 0
 }
 
 func (h *wsHub) broadcast(data []byte) {
@@ -1077,6 +1119,8 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 
 	// Check if it's a JS file and we have an SRI for it (optional: could also add SRI header but browser does it via script tag)
 	// We just serve the content here.
+	// Serves a static asset with an explicit, non-HTML Content-Type; the XSS rule doesn't apply.
+	// nosemgrep: no-direct-write-to-responsewriter
 	_, _ = w.Write(data)
 }
 

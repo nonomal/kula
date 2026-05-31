@@ -1,16 +1,16 @@
 package web
 
-	import (
-		"net/http"
-		"net/http/httptest"
-		"strings"
-		"testing"
-		"time"
+import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
 
-		"kula/internal/collector"
-		"kula/internal/config"
-		"github.com/gorilla/websocket"
-	)
+	"github.com/gorilla/websocket"
+	"kula/internal/collector"
+	"kula/internal/config"
+)
 
 func TestWebSocketConnectionLimits(t *testing.T) {
 	cfg := config.WebConfig{
@@ -19,7 +19,7 @@ func TestWebSocketConnectionLimits(t *testing.T) {
 	}
 	c := collector.New(config.GlobalConfig{}, config.CollectionConfig{}, config.ApplicationsConfig{}, "")
 	s := NewServer(cfg, config.GlobalConfig{}, c, nil, t.TempDir(), config.OllamaConfig{})
-	
+
 	// Start hub to process registration/unregistration
 	go s.hub.run()
 	server := httptest.NewServer(http.HandlerFunc(s.handleWebSocket))
@@ -62,7 +62,7 @@ func TestWebSocketConnectionLimits(t *testing.T) {
 	// Actually unregister is called in defer in handleWebSocket which runs when the pumps exit.
 	// Since we closed c1, the pumps should exit soon.
 	// Let's force a bit of delay or check in a loop.
-	
+
 	retryCount := 0
 	var c3 *websocket.Conn
 	for retryCount < 10 {
@@ -100,5 +100,44 @@ func TestWebSocketConnectionLimits(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusTooManyRequests {
 		t.Errorf("Expected status 429, got %d", resp.StatusCode)
+	}
+}
+
+// TestHubHasClientsAndBroadcast covers the zero-client broadcast skip used by
+// BroadcastSample: a fresh hub reports no clients (so the per-tick JSON marshal
+// is skipped), and once a client is registered hasClients() flips to true and
+// broadcast still delivers the payload — connected clients are unaffected.
+func TestHubHasClientsAndBroadcast(t *testing.T) {
+	h := newWSHub()
+	if h.hasClients() {
+		t.Fatal("fresh hub should report no clients")
+	}
+
+	c := &wsClient{sendCh: make(chan []byte, 1)}
+	h.mu.Lock()
+	h.clients[c] = true
+	h.mu.Unlock()
+
+	if !h.hasClients() {
+		t.Fatal("hub should report a client after registration")
+	}
+
+	h.broadcast([]byte("payload"))
+	select {
+	case got := <-c.sendCh:
+		if string(got) != "payload" {
+			t.Fatalf("delivered %q, want %q", got, "payload")
+		}
+	default:
+		t.Fatal("broadcast did not deliver to the registered client")
+	}
+
+	// A paused client must not receive broadcasts (unchanged behaviour).
+	c.paused = true
+	h.broadcast([]byte("second"))
+	select {
+	case got := <-c.sendCh:
+		t.Fatalf("paused client unexpectedly received %q", got)
+	default:
 	}
 }

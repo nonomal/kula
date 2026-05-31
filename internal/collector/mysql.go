@@ -12,16 +12,16 @@ import (
 )
 
 type mysqlRaw struct {
-	questions       int64
-	comSelect       int64
-	comInsert       int64
-	comUpdate       int64
-	comDelete       int64
-	slowQueries     int64
-	innodbBPReads   int64
+	questions        int64
+	comSelect        int64
+	comInsert        int64
+	comUpdate        int64
+	comDelete        int64
+	slowQueries      int64
+	innodbBPReads    int64
 	innodbBPRequests int64
 	tableLocksWaited int64
-	rowLockWaits    int64
+	rowLockWaits     int64
 }
 
 type mysqlCollector struct {
@@ -317,15 +317,15 @@ func (mc *mysqlCollector) calculateStats(stats *MysqlStats, cur mysqlRaw, elapse
 			}
 			return round2(float64(cur-prev) / elapsed)
 		}
-		stats.QueriesPS       = rate(cur.questions,        mc.prev.questions)
-		stats.ComSelectPS     = rate(cur.comSelect,        mc.prev.comSelect)
-		stats.ComInsertPS     = rate(cur.comInsert,        mc.prev.comInsert)
-		stats.ComUpdatePS     = rate(cur.comUpdate,        mc.prev.comUpdate)
-		stats.ComDeletePS     = rate(cur.comDelete,        mc.prev.comDelete)
-		stats.SlowQueriesPS   = rate(cur.slowQueries,      mc.prev.slowQueries)
-		stats.InnodbBPReadsPS = rate(cur.innodbBPReads,    mc.prev.innodbBPReads)
+		stats.QueriesPS = rate(cur.questions, mc.prev.questions)
+		stats.ComSelectPS = rate(cur.comSelect, mc.prev.comSelect)
+		stats.ComInsertPS = rate(cur.comInsert, mc.prev.comInsert)
+		stats.ComUpdatePS = rate(cur.comUpdate, mc.prev.comUpdate)
+		stats.ComDeletePS = rate(cur.comDelete, mc.prev.comDelete)
+		stats.SlowQueriesPS = rate(cur.slowQueries, mc.prev.slowQueries)
+		stats.InnodbBPReadsPS = rate(cur.innodbBPReads, mc.prev.innodbBPReads)
 		stats.TableLocksWaitedPS = rate(cur.tableLocksWaited, mc.prev.tableLocksWaited)
-		stats.RowLockWaitsPS  = rate(cur.rowLockWaits,     mc.prev.rowLockWaits)
+		stats.RowLockWaitsPS = rate(cur.rowLockWaits, mc.prev.rowLockWaits)
 	}
 	mc.prev = cur
 

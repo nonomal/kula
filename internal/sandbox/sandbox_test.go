@@ -26,10 +26,10 @@ func TestLandlockEnforcement(t *testing.T) {
 
 	// Run the helper process which will enforce sandbox and then try to break out
 	cmd := exec.Command(os.Args[0], "-test.run=TestLandlockEnforcement")
-	cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1", 
-		"TEST_CONFIG_PATH="+configPath, 
+	cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1",
+		"TEST_CONFIG_PATH="+configPath,
 		"TEST_STORAGE_DIR="+storageDir)
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Helper process failed: %v\nOutput: %s", err, string(output))
@@ -39,7 +39,7 @@ func TestLandlockEnforcement(t *testing.T) {
 func runHelperProcess() {
 	configPath := os.Getenv("TEST_CONFIG_PATH")
 	storageDir := os.Getenv("TEST_STORAGE_DIR")
-	
+
 	// Enforce sandbox (using a high port for testing)
 	webCfg := config.WebConfig{Enabled: true, Port: 27999}
 	err := Enforce(configPath, storageDir, webCfg, config.ApplicationsConfig{}, config.OllamaConfig{})

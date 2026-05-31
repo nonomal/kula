@@ -1,0 +1,106 @@
+# CI for kula — vet, vuln-scan, test, lint, build, and smoke-test the binary.
+#
+# ─── Security model (this is the "sandboxed" shape we want) ────────────────
+#   * permissions: contents: read
+#       The GITHUB_TOKEN handed to this run can only READ this one repo.
+#       Every write scope (contents:write, packages, id-token, ...) is
+#       implicitly `none`. So even if a dependency or an installed dev tool
+#       turns out to be malicious, it CANNOT push commits, move tags, cut
+#       releases, or otherwise manipulate the remote repository.
+#   * persist-credentials: false
+#       checkout does NOT write the token into .git/config, so nothing
+#       running in the job can read it back out in the first place.
+#   * No third-party actions.
+#       Only first-party actions/* are used, each pinned to a full commit
+#       SHA (tags are mutable and can be re-pointed; a SHA cannot).
+#   * Dev tools (govulncheck, golangci-lint) are installed from pinned
+#       versions via the Go toolchain. Within the read-only sandbox above
+#       they have no path to the remote repo regardless of what they do.
+#   * runs-on: ubuntu-latest — a GitHub-hosted, ephemeral VM destroyed
+#       after the job. We don't care what happens inside it.
+# ───────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths: &code-paths
+      - 'cmd/**'
+      - 'internal/**'
+      - 'config.example.yaml'
+      - 'go.mod'
+      - 'go.sum'
+      - 'version.go'
+      - 'VERSION'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths: *code-paths
+  workflow_dispatch:
+
+# Top-level default: read-only, repo-scoped token for every job below.
+permissions:
+  contents: read
+
+# A newer push to the same ref cancels the older, still-running CI.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Assert no credentials persisted in the checkout
+        # Belt-and-suspenders on top of persist-credentials:false (token never
+        # written) and contents:read (token can't write anyway). Strips any
+        # persisted git auth and FAILS the run if any remains — turning "no
+        # token on disk" from an assumption into an enforced invariant, before
+        # any dependency or tool is fetched, built, or run.
+        run: |
+          git config --local --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+          git config --local --unset-all credential.helper                    2>/dev/null || true
+          rm -f "$HOME/.git-credentials"
+          if git config --local --list | grep -iE 'extraheader|authorization|x-access-token' >/dev/null 2>&1; then
+            echo "::error::Credential material present in .git/config" >&2
+            exit 1
+          fi
+          echo "OK: no credentials persisted in the local checkout."
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod # tracks the version declared in go.mod (1.26.1)
+
+      - name: Put go-installed tools on PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      # ── Checks (mirror addons/check.sh) ──────────────────────────────────
+      - name: go vet
+        run: go vet ./...
+
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
+          govulncheck ./...
+
+      - name: Test (race detector)
+        # -race needs cgo; ubuntu-latest ships gcc and CGO defaults to on here.
+        run: go test -v -race ./...
+
+      - name: golangci-lint
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+          golangci-lint run ./...
+
+      # ── Build + prove the binary actually runs ───────────────────────────
+      - name: Build
+        run: CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -buildvcs=false -o kula ./cmd/kula/
+
+      - name: Smoke test
+        run: ./kula --version

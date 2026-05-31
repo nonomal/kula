@@ -1,8 +1,8 @@
 package kula
 
 import (
-_ "embed"
-"strings"
+	_ "embed"
+	"strings"
 )
 
 //go:embed VERSION

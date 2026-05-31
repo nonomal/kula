@@ -20,8 +20,9 @@ import select
 import socket
 import socketserver
 import sys
-import threading
+from email.message import Message
 from http.server import BaseHTTPRequestHandler
+from typing import Any
 
 HOP_BY_HOP = {
     "connection",
@@ -49,36 +50,41 @@ class UnixHTTPConnection(http.client.HTTPConnection):
         self.sock = sock
 
 
-def _is_websocket(headers) -> bool:
+def _is_websocket(headers: Message) -> bool:
     return (
         headers.get("Upgrade", "").lower() == "websocket"
         and "upgrade" in headers.get("Connection", "").lower()
     )
 
 
-def _filter_headers(headers, drop_extra=None):
+def _filter_headers(
+    headers: Message, drop_extra: list[str] | None = None
+) -> list[tuple[str, str]]:
     drop = HOP_BY_HOP | {h.lower() for h in (drop_extra or [])}
     return [(k, v) for k, v in headers.items() if k.lower() not in drop]
 
 
-def make_handler(socket_path: str):
+def make_handler(socket_path: str) -> type[BaseHTTPRequestHandler]:
     """Build a request handler class bound to the configured Unix socket."""
 
     class ProxyHandler(BaseHTTPRequestHandler):
+        """Forward each request to the configured Unix-socket upstream."""
+
         protocol_version = "HTTP/1.1"
 
-        def log_message(self, fmt, *args):  # noqa: N802
+        # pylint: disable=redefined-builtin  # match BaseHTTPRequestHandler signature
+        def log_message(self, format: str, *args: Any) -> None:  # noqa: N802
             sys.stderr.write(
-                f"[{self.log_date_time_string()}] {self.address_string()} {fmt % args}\n"
+                f"[{self.log_date_time_string()}] {self.address_string()} {format % args}\n"
             )
 
-        def _proxy(self):
+        def _proxy(self) -> None:
             if _is_websocket(self.headers):
                 self._proxy_websocket()
                 return
             self._proxy_http()
 
-        def _proxy_http(self):
+        def _proxy_http(self) -> None:
             body = None
             length = self.headers.get("Content-Length")
             if length is not None:
@@ -102,7 +108,9 @@ def make_handler(socket_path: str):
                 for k, v in _filter_headers(resp.headers):
                     self.send_header(k, v)
                 payload = resp.read()
-                if "content-length" not in {h.lower() for h, _ in _filter_headers(resp.headers)}:
+                if "content-length" not in {
+                    h.lower() for h, _ in _filter_headers(resp.headers)
+                }:
                     self.send_header("Content-Length", str(len(payload)))
                 self.end_headers()
                 if payload and self.command != "HEAD":
@@ -112,7 +120,7 @@ def make_handler(socket_path: str):
             finally:
                 conn.close()
 
-        def _proxy_websocket(self):
+        def _proxy_websocket(self) -> None:
             """Tunnel a WebSocket upgrade by relaying raw bytes after the handshake."""
             try:
                 upstream = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -123,7 +131,9 @@ def make_handler(socket_path: str):
 
             try:
                 req_lines = [f"{self.command} {self.path} HTTP/1.1\r\n"]
-                hdrs = dict(_filter_headers(self.headers, drop_extra=["Connection", "Upgrade"]))
+                hdrs = dict(
+                    _filter_headers(self.headers, drop_extra=["Connection", "Upgrade"])
+                )
                 hdrs.setdefault("Host", "kula.local")
                 hdrs["Connection"] = "Upgrade"
                 hdrs["Upgrade"] = self.headers.get("Upgrade", "websocket")
@@ -176,11 +186,14 @@ def make_handler(socket_path: str):
 
 
 class ThreadedHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    """Threaded TCP server so each proxied connection runs on its own thread."""
+
     daemon_threads = True
     allow_reuse_address = True
 
 
 def main() -> int:
+    """Parse command-line arguments and run the reverse proxy until interrupted."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--listen",
