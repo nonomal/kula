@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/rand" // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- fuzz-input PRNG; -seed reproducibility needs a seedable source; not security-sensitive (tokens use crypto/rand)
 	"net"
 	"net/http"
 	"net/url"
@@ -263,7 +263,7 @@ func NewScanner(opt Options) (*Scanner, error) {
 		fuzz:       opt.Fuzz,
 		fuzzIter:   opt.FuzzIter,
 		seed:       opt.Seed,
-		rng:        rand.New(rand.NewSource(opt.Seed)), //nolint:gosec // fuzzing inputs, not security-sensitive randomness
+		rng:        rand.New(rand.NewSource(opt.Seed)), //nolint:gosec // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used -- fuzz-input randomness, reproducible via -seed; not security-sensitive
 		verbose:    opt.Verbose,
 		username:   opt.Username,
 		password:   opt.Password,
