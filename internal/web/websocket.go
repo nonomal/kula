@@ -88,6 +88,8 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	upg := s.newUpgrader()
 	upg.EnableCompression = s.cfg.EnableCompression
 
+	// Origin is validated by newUpgrader()'s CheckOrigin (Host + allowed_origins), which semgrep can't follow from here.
+	// nosemgrep: websocket-missing-origin-check
 	conn, err := upg.Upgrade(w, r, nil)
 	if err != nil {
 		s.wsMu.Lock()

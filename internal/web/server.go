@@ -196,6 +196,8 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	b, _ := json.Marshal(map[string]string{"error": msg})
+	// Writes JSON (not text/html); the XSS rule doesn't apply.
+	// nosemgrep: no-direct-write-to-responsewriter
 	_, _ = w.Write(b)
 }
 
@@ -815,6 +817,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sameSite, secure := s.sessionCookieSameSite(r)
+	// Secure is set conditionally (above) so kula also works over plain HTTP on a LAN; not a hardcoded false.
+	// nosemgrep: cookie-missing-secure
 	http.SetCookie(w, &http.Cookie{
 		Name:     "kula_session",
 		Value:    token,
@@ -849,6 +853,8 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 	// Delete the cookie on the client side
 	sameSite, secure := s.sessionCookieSameSite(r)
+	// Secure is set conditionally (above) so kula also works over plain HTTP on a LAN; not a hardcoded false.
+	// nosemgrep: cookie-missing-secure
 	http.SetCookie(w, &http.Cookie{
 		Name:     "kula_session",
 		Value:    "",
@@ -917,6 +923,8 @@ func (s *Server) handleI18n(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	// Serves a raw i18n locale JSON blob (not text/html); the XSS rule doesn't apply.
+	// nosemgrep: no-direct-write-to-responsewriter
 	_, _ = w.Write(data)
 }
 
@@ -1111,6 +1119,8 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 
 	// Check if it's a JS file and we have an SRI for it (optional: could also add SRI header but browser does it via script tag)
 	// We just serve the content here.
+	// Serves a static asset with an explicit, non-HTML Content-Type; the XSS rule doesn't apply.
+	// nosemgrep: no-direct-write-to-responsewriter
 	_, _ = w.Write(data)
 }
 

@@ -42,6 +42,7 @@ def get_latest_version(npm_name: str) -> Optional[str]:
     url = f"https://registry.npmjs.org/{npm_name}/latest"
     try:
         # nosec B310: hardcoded https:// scheme, npm_name from LIBS constant (not user input)
+        # nosemgrep: dynamic-urllib-use-detected -- url is a hardcoded https:// npm registry path; npm_name is from the LIBS constant
         with urllib.request.urlopen(url) as response:  # nosec B310
             data = json.loads(response.read().decode())
             version = data.get("version")

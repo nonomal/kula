@@ -356,6 +356,8 @@ func (s *Server) handleOllamaChat(w http.ResponseWriter, r *http.Request) {
 		// If headers already sent, we can only log the error.
 		log.Printf("[Ollama] stream error: %v", err)
 		// Signal the client that an error occurred mid-stream.
+		// Writes an SSE text/event-stream frame (not text/html); the XSS rule doesn't apply.
+		// nosemgrep: no-fprintf-to-responsewriter
 		_, _ = fmt.Fprintf(w, "event: error\ndata: %s\n\n", err.Error())
 		flusher.Flush()
 	}

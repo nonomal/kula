@@ -234,6 +234,7 @@ export function setupChartActions() {
                 let prefs = {};
                 try { prefs = JSON.parse(localStorage.getItem('kula_graphs_max') || '{}'); } catch (e) { }
                 let cur = prefs[graphId] || (state.configMax && state.configMax[graphId]);
+                // nosemgrep: insecure-object-assign -- assigned keys are static literals, not user-controlled (no mass assignment)
                 if (!cur || !cur.mode) cur = Object.assign({}, cur, { mode: 'off', value: cur?.value || (graphId === 'network' ? 1000 : 100) });
 
                 let uiMode = (cur.mode === 'auto' || cur.mode === 'on') ? 'on' : 'off';

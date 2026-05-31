@@ -196,6 +196,8 @@ func NewScanner(target, basePath, username, password string, timeout time.Durati
 	u.Fragment = ""
 
 	transport := &http.Transport{
+		// kula-scan probes arbitrary targets; the Go client default min (TLS 1.2) is correct, and InsecureSkipVerify is the opt-in below.
+		// nosemgrep: missing-ssl-minversion
 		TLSClientConfig:   &tls.Config{InsecureSkipVerify: insecure}, //nolint:gosec // -insecure is an explicit opt-in for self-signed test instances
 		ForceAttemptHTTP2: true,
 	}
@@ -303,6 +305,8 @@ func (s *Scanner) rawTCP(requestLine string) (int, string) {
 	var err error
 	dialer := &net.Dialer{Timeout: s.timeout}
 	if s.https {
+		// Probe tool: connect to whatever the target offers; Go's client default min is TLS 1.2. InsecureSkipVerify is an explicit opt-in.
+		// nosemgrep: missing-ssl-minversion
 		conn, err = tls.DialWithDialer(dialer, "tcp", host, &tls.Config{InsecureSkipVerify: s.insecure}) //nolint:gosec // explicit opt-in
 	} else {
 		conn, err = dialer.Dial("tcp", host)
@@ -337,6 +341,8 @@ func (s *Scanner) wsDial(path string, headers http.Header) (*websocket.Conn, *ht
 
 	dialer := *websocket.DefaultDialer
 	dialer.HandshakeTimeout = s.timeout
+	// Probe tool: connect to whatever the target offers; Go's client default min is TLS 1.2. InsecureSkipVerify is an explicit opt-in.
+	// nosemgrep: missing-ssl-minversion
 	dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: s.insecure} //nolint:gosec // explicit opt-in
 	return dialer.Dial(wsURL, headers)
 }
