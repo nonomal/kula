@@ -1036,6 +1036,9 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 	}
 
 	// Nginx
+	if err := need(1, "nginx presence"); err != nil {
+		return off, err
+	}
 	nginxPresent := data[off]
 	off++
 	if nginxPresent != 0 {
@@ -1307,6 +1310,9 @@ func decodeVariable(data []byte, s *collector.Sample, hasApps, hasApache2, hasMy
 	// Apache2 — gated by flagHasApache2 so old records (pre-0.16.0) that
 	// lack this flag skip the byte and continue to custom metrics.
 	if hasApache2 {
+		if err := need(1, "apache2 presence"); err != nil {
+			return off, err
+		}
 		apache2Version := data[off]
 		off++
 		switch apache2Version {

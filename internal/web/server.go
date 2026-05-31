@@ -318,27 +318,13 @@ func (s *Server) sessionCookieSameSite(r *http.Request) (http.SameSite, bool) {
 	return http.SameSiteStrictMode, tlsSecure
 }
 
-func (s *Server) Start() error {
-	if !s.cfg.Enabled {
-		return nil
-	}
-	if err := s.auth.LoadSessions(); err != nil {
-		log.Printf("Warning: failed to load sessions: %v", err)
-	}
-	if s.cfg.TrustProxy {
-		log.Printf("Security Note: TrustProxy is enabled. Ensure Kula is behind a trusted reverse proxy that handles X-Forwarded-For.")
-	}
-
-	if len(s.cfg.Security.AllowedOrigins) > 0 {
-		log.Printf("Security Note: web.security.allowed_origins is set (%d origin(s)); session cookies will be issued with SameSite=None; Secure.", len(s.cfg.Security.AllowedOrigins))
-		if !s.cfg.TrustProxy {
-			log.Printf("Security Warning: allowed_origins requires HTTPS for cross-origin auth. Without TLS or trust_proxy, browsers will reject SameSite=None;Secure cookies and cross-origin login will silently fail.")
-		}
-		if !s.cfg.Security.OriginValidation && !s.cfg.Auth.Enabled {
-			log.Printf("Security Warning: allowed_origins is set, origin_validation is disabled, and auth is disabled. The API has no CSRF protection and will accept state-changing requests from any cross-origin page the browser loads.")
-		}
-	}
-
+// buildHandler assembles the complete HTTP handler chain: the route mux, the
+// optional base-path mount, the security-header middleware, and optional gzip.
+// It performs no I/O and starts no goroutines, so tests can drive the exact
+// production middleware stack (CORS → auth → CSRF → logging → handlers, wrapped
+// by security headers and gzip) through httptest without binding a socket.
+// Start composes the same chain by calling this after wiring up its goroutines.
+func (s *Server) buildHandler() http.Handler {
 	mux := http.NewServeMux()
 
 	// API routes
@@ -417,6 +403,39 @@ func (s *Server) Start() error {
 		mux.HandleFunc("/status", s.handleHealth)
 	}
 
+	routed := mountWithBasePath(mux, s.cfg.BasePath)
+	if s.cfg.BasePath != "" {
+		log.Printf("Web routes mounted under base path %q", s.cfg.BasePath)
+	}
+
+	var handler = s.securityMiddleware(routed)
+	if s.cfg.EnableCompression {
+		handler = gzipMiddleware(handler)
+	}
+	return handler
+}
+
+func (s *Server) Start() error {
+	if !s.cfg.Enabled {
+		return nil
+	}
+	if err := s.auth.LoadSessions(); err != nil {
+		log.Printf("Warning: failed to load sessions: %v", err)
+	}
+	if s.cfg.TrustProxy {
+		log.Printf("Security Note: TrustProxy is enabled. Ensure Kula is behind a trusted reverse proxy that handles X-Forwarded-For.")
+	}
+
+	if len(s.cfg.Security.AllowedOrigins) > 0 {
+		log.Printf("Security Note: web.security.allowed_origins is set (%d origin(s)); session cookies will be issued with SameSite=None; Secure.", len(s.cfg.Security.AllowedOrigins))
+		if !s.cfg.TrustProxy {
+			log.Printf("Security Warning: allowed_origins requires HTTPS for cross-origin auth. Without TLS or trust_proxy, browsers will reject SameSite=None;Secure cookies and cross-origin login will silently fail.")
+		}
+		if !s.cfg.Security.OriginValidation && !s.cfg.Auth.Enabled {
+			log.Printf("Security Warning: allowed_origins is set, origin_validation is disabled, and auth is disabled. The API has no CSRF protection and will accept state-changing requests from any cross-origin page the browser loads.")
+		}
+	}
+
 	go s.hub.run()
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
@@ -432,15 +451,7 @@ func (s *Server) Start() error {
 		}
 	}()
 
-	routed := mountWithBasePath(mux, s.cfg.BasePath)
-	if s.cfg.BasePath != "" {
-		log.Printf("Web routes mounted under base path %q", s.cfg.BasePath)
-	}
-
-	var handler = s.securityMiddleware(routed)
-	if s.cfg.EnableCompression {
-		handler = gzipMiddleware(handler)
-	}
+	handler := s.buildHandler()
 
 	s.httpSrv = &http.Server{
 		Handler:      handler,

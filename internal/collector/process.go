@@ -79,6 +79,15 @@ func collectProcesses() ProcessStats {
 				pos++
 			}
 			field := rest[start:pos]
+			if len(field) == 0 {
+				// An empty token only occurs when the token scan stopped on a
+				// '\n' with nothing after it — the end of the single-line stat
+				// record. The state/thread-count fields, if present, are already
+				// captured, so stop here rather than index field[0] out of range
+				// on a truncated or malformed record (which would panic and, with
+				// no recover() in the Collect loop, crash the agent).
+				break
+			}
 
 			switch fieldIdx {
 			case 0:

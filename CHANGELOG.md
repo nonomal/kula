@@ -9,14 +9,23 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [0.17.3] - TBA
 
+### Added
+
+- fuzz and runtime security tests
+
 ### Changed
 
 - Performance: query-cache entries expire by TTL instead of a full per-second rebuild
+
+### Fixed
+
+- Out-of-bounds panic decoding truncated or corrupt storage records
 
 ### Security
 
 - Cap rate-limiter memory to prevent unbounded growth from distinct-IP floods
 - Fix Login timing side-channel / username enumeration
+- Fix out-of-bounds panic in the process collector
 
 ## [0.17.2] - 2026-05-30
 
