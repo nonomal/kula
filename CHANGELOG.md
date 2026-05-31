@@ -12,6 +12,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 ### Added
 
 - fuzz and runtime security tests
+- kula-scan: active black-box safeguard scanner
 
 ### Changed
 
